@@ -32,7 +32,6 @@ public class Server {
 
             // Get object reference from the servant
             Servant servant = new Servant(dataDirectory, useCaching);
-            servant.parseDataSets();
             org.omg.CORBA.Object ref = rootPOA.servant_to_reference(servant);
             Profiler pref = ProfilerHelper.narrow(ref);
 
