@@ -12,7 +12,7 @@ import TasteProfile.ProfilerHelper;
 
 public class Server {
 
-    // Required arguments: -ORBInitialPort <port_number> <file_path>
+    // Required arguments: -ORBInitialPort <portNumber> <dataDirectory> [useCaching]
     public static void main(String[] args) {
         try {
             // Create and initialize the CORBA ORB
@@ -22,8 +22,17 @@ public class Server {
             POA rootPOA = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
             rootPOA.the_POAManager().activate();
 
+            // Get arguments
+            String dataDirectory = args[2];
+
+            boolean useCaching = false;
+            if (args.length == 4) {
+               useCaching = Boolean.parseBoolean(args[3]);
+            }
+
             // Get object reference from the servant
-            Servant servant = new Servant();
+            Servant servant = new Servant(dataDirectory, useCaching);
+            servant.parseDataSets();
             org.omg.CORBA.Object ref = rootPOA.servant_to_reference(servant);
             Profiler pref = ProfilerHelper.narrow(ref);
 
