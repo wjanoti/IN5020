@@ -1,67 +1,86 @@
 package Client;
 
-import TasteProfile.UserProfile;
+import TasteProfile.*;
 
-import javax.jws.soap.SOAPBinding;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 public class QueryExecutor {
 
-    private boolean useCaching = false;
+    private Profiler profilerRef;
+    private boolean useCaching;
+    private Logger logger;
 
-    private Map<String, UserProfile> cache;
+    private Map<String, UserProfile> cache = new HashMap<>();
 
-    public QueryExecutor(boolean useCaching) {
+    public QueryExecutor(Profiler profilerRef, boolean useCaching, Logger logger) {
+        this.profilerRef = profilerRef;
         this.useCaching = useCaching;
+        this.logger = logger;
     }
 
+    /**
+     * Executes a query using the corresponding server method and logs the result to the appropriate file
+     * @param q query to execute
+     */
     public void executeQuery(Query q) {
-
-        long startTimeMs = System.currentTimeMillis();
-
-        String result = "";
         switch (q.name) {
             case "getTimesPlayedByUser":
-                result = this.getTimesPlayedByUser(q.args.get(0), q.args.get(1));
+                this.getTimesPlayedByUser(q.args.get(0), q.args.get(1));
                 break;
             case "getTimesPlayed":
-                result = this.getTimesPlayed(q.args.get(0));
+                this.getTimesPlayed(q.args.get(0));
                 break;
             case "getTopThreeUsersBySong":
-                result = this.getTopThreeUsersBySong(q.args.get(0));
+                this.getTopThreeUsersBySong(q.args.get(0));
                 break;
             case "getTopThreeSongsByUser":
-                result = this.getTopThreeSongsByUser(q.args.get(0));
+                this.getTopThreeSongsByUser(q.args.get(0));
                 break;
         }
-
-        long execTimeMs = System.currentTimeMillis() - startTimeMs;
-
-        String executionResult = String.format("%s (%d ms)", result, execTimeMs);
-
-        System.out.println(executionResult);
-        // todo route this execution result to the required logger
     }
 
-    private String getTopThreeSongsByUser(String userId) {
-        // todo come up with a way to handle multiple lines of output + no time measurement
-        return "getTopThreeSongsByUser";
+    private void getTopThreeSongsByUser(String userId) {
+        TopThreeSongs songs = null;
+        if (useCaching) {
+            if (cache.containsKey(userId)) {
+                UserProfile profile = cache.get(userId);
+                songs = profile.top_three_songs;
+            }
+            else {
+                // todo add call to the server here for getUserProfile
+                UserProfile profile = null;
+                cache.put(userId, profile);
+                songs = profile.top_three_songs;
+            }
+        }
+        else {
+             songs = profilerRef.getTopThreeSongsByUser(userId);
+        }
+
+        for (SongCounter songCounter:songs.topThreeSongs) {
+            String line = String.format("Song %s was played %d times.", songCounter.song_id, songCounter.songid_play_time);
+            logger.LogLine("getTopThreeSongsByUser", line);
+        }
     }
 
-    private String getTopThreeUsersBySong(String songId) {
-        // todo come up with a way to handle multiple lines of output + no time measurement
-        return "getTopThreeUsersBySong";
+    private void getTopThreeUsersBySong(String songId) {
+        TopThreeUsers users = profilerRef.getTopThreeUsersBySong(songId);
+
+        for (UserCounter userCounter:users.topThreeUsers) {
+            String line = String.format("User %s played %d times.", userCounter.user_id, userCounter.songid_play_time);
+            logger.LogLine("getTopThreeUsersBySong", line);
+        }
     }
 
-    private String getTimesPlayed(String songId) {
-        // todo add call to the server here
-        long timesPlayed = 3;
-        return String.format("Song %s played %d times.", songId, timesPlayed);
+    private void getTimesPlayed(String songId) {
+        long timesPlayed = this.profilerRef.getTimesPlayed(songId);
+        logger.LogLine("getTimesPlayed", String.format("Song %s played %d times.", songId, timesPlayed));
     }
 
-    private String getTimesPlayedByUser(String userId, String songId) {
-
+    private void getTimesPlayedByUser(String userId, String songId) {
+        long startTimeMs = System.currentTimeMillis();
         long timesPlayed = 0;
         if (useCaching) {
             if (cache.containsKey(userId)) {
@@ -80,11 +99,10 @@ public class QueryExecutor {
             }
         }
         else {
-            // todo add call to the server here for getTimesPlayedByUser
-            timesPlayed = 3;
+            timesPlayed = this.profilerRef.getTimesPlayedByUser(userId, songId);
         }
+        long elapsed = System.currentTimeMillis() - startTimeMs;
 
-
-        return String.format("Song %s played %d times by user %s.", userId, timesPlayed, songId);
+        logger.LogLine("getTimesPlayedByUser", String.format("Song %s played %d times by user %s. (%d ms)", userId, timesPlayed, songId, elapsed));
     }
 }
