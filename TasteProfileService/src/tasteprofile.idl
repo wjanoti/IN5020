@@ -51,5 +51,8 @@ module TasteProfile
 
         /* Return the top 3 songs by user */
         TopThreeSongs getTopThreeSongsByUser(in string user_id);
+
+        /* Returns the user song profile */
+        UserProfile getUserProfile(in string user_id);
   	};
 };

@@ -2,6 +2,9 @@ package Server;
 
 import TasteProfile.TopThreeUsers;
 
+/**
+ * This class is the implementation of the valuetype TopThreeUsers defined in the IDL.
+ */
 public class TopThreeUsersImpl extends TopThreeUsers {
 
     /**
