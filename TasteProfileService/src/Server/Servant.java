@@ -22,19 +22,29 @@ public class Servant extends ProfilerPOA {
 
     private String dataDirectory;
     private boolean useCaching;
+    private Map<String, SongProfileImpl> songCache = new HashMap<>();
+    private Map<String, UserProfileImpl> userCache = new HashMap<>();
 
     public Servant(String dataDirectory, boolean useCaching) {
         this.dataDirectory = dataDirectory;
         this.useCaching = useCaching;
         if (this.useCaching) {
-            buildCache();
+            buildSongCache();
+            buildUserCache();
         }
     }
 
     /**
-     * Populates the cache from the files.
+     * Populates the song cache
      */
-    private void buildCache() {
+    private void buildSongCache() {
+        // TODO
+    }
+
+    /**
+     * Populates the user cache
+     */
+    private void buildUserCache() {
         // TODO
     }
 
@@ -131,9 +141,7 @@ public class Servant extends ProfilerPOA {
         int counter = 0;
         while (it.hasNext() && counter < 3) {
             Map.Entry pair = (Map.Entry)it.next();
-            UserCounterImpl userCounterEntry = new UserCounterImpl();
-            userCounterEntry.setUser_id((String) pair.getKey());
-            userCounterEntry.setsongid_play_time((Integer) pair.getValue());
+            UserCounterImpl userCounterEntry = new UserCounterImpl((String) pair.getKey(), (Integer) pair.getValue());
             userCounter[counter] = userCounterEntry;
             counter++;
         }
@@ -180,9 +188,7 @@ public class Servant extends ProfilerPOA {
         int counter = 0;
         while (it.hasNext() && counter < 3) {
             Map.Entry pair = (Map.Entry)it.next();
-            SongCounterImpl songCounterEntry = new SongCounterImpl();
-            songCounterEntry.setSong_id((String) pair.getKey());
-            songCounterEntry.setsongid_play_time((Integer) pair.getValue());
+            SongCounterImpl songCounterEntry = new SongCounterImpl((String) pair.getKey(), (Integer) pair.getValue());
             songCounter[counter] = songCounterEntry;
             counter++;
         }
@@ -196,7 +202,36 @@ public class Servant extends ProfilerPOA {
 
     @Override
     public UserProfile getUserProfile(String user_id) {
-        return null;
+        final File dataDirectory = new File(this.dataDirectory);
+        int userTotalPlays = 0;
+        ArrayList<SongCounterImpl> songs = new ArrayList<SongCounterImpl>();
+        String line;
+
+        for (File dataFile: dataDirectory.listFiles()) {
+            try {
+                BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                while ((line = reader.readLine()) != null) {
+                    String[] lineArray = line.split("\t");
+                    String songId = lineArray[0];
+                    String userId = lineArray[1];
+                    Integer playCount = Integer.parseInt(lineArray[2]);
+                    if (userId.equals(user_id)) {
+                        userTotalPlays += playCount;
+                        songs.add(new SongCounterImpl(songId, playCount));
+                    }
+                }
+                reader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+        return new UserProfileImpl(
+                user_id,
+                userTotalPlays,
+                songs.toArray(new SongCounterImpl[0]),
+                getTopThreeSongsByUser(user_id)
+        );
     }
 
 }

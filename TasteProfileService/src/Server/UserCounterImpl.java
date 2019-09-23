@@ -7,14 +7,14 @@ import TasteProfile.UserCounter;
  */
 public class UserCounterImpl extends UserCounter implements Comparable<UserCounterImpl> {
 
-    public void setUser_id(String userId) {
-        this.user_id = userId;
+    public UserCounterImpl() {
+        super();
     }
 
-    public void setsongid_play_time(int songTimesPlayed) {
+    public UserCounterImpl(String userId, int songTimesPlayed) {
+        this.user_id = userId;
         this.songid_play_time = songTimesPlayed;
     }
-
     @Override
     public int compareTo(UserCounterImpl o) {
         if (this.songid_play_time == o.songid_play_time) {
