@@ -75,8 +75,10 @@ public class QueryExecutor {
     }
 
     private void getTimesPlayed(String songId) {
+        long startTimeMs = System.currentTimeMillis();
         long timesPlayed = this.profilerRef.getTimesPlayed(songId);
-        logger.LogLine("getTimesPlayed", String.format("Song %s played %d times.", songId, timesPlayed));
+        long elapsed = System.currentTimeMillis() - startTimeMs;
+        logger.LogLine("getTimesPlayed", String.format("Song %s played %d times. (%d ms)", songId, timesPlayed, elapsed));
     }
 
     private void getTimesPlayedByUser(String userId, String songId) {

@@ -6,6 +6,7 @@ import org.omg.CORBA.ORB;
 import org.omg.CosNaming.NamingContextExt;
 import org.omg.CosNaming.NamingContextExtHelper;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,17 +20,47 @@ import java.util.List;
  */
 public class Client {
 
-    public static void main(String[] args) {
+    // Args: -ORBInitialPort <Port> <inputFile> <useClientCache> <serverUsesCache>
+    public static void main(String[] args) throws IOException {
 
-        Profiler profilerRef = InitializeORB(args);
+        //Profiler profilerRef = InitializeORB(args);
+        Profiler profilerRef = new FakeProfiler();
 
-        // todo initialize filenames with the format {fileName}_{clientSideCacheFlag}_{serverSideCache}
-        Logger logger = new Logger();
+        boolean clientSideCache = Boolean.parseBoolean(args[3]);
+        boolean serverSideCache = Boolean.parseBoolean(args[4]);
+
+        String filenameBase;
+        if (!clientSideCache && !serverSideCache) {
+            filenameBase = "naive.txt";
+        }
+        else {
+            if (clientSideCache) {
+                filenameBase = "clientside_caching_on.txt";
+            }
+            else {
+                filenameBase = "clientside_caching_off.txt";
+            }
+        }
+
+        File resultFileForFirstTwoMethods = new File(filenameBase);
+        File resultFileForThirdMethod = new File("topuser.txt");
+        File resultFileForFourthMethod = new File("topsong.txt");
+
+        try {
+            resultFileForFirstTwoMethods.createNewFile();
+            resultFileForThirdMethod.createNewFile();
+            resultFileForFourthMethod.createNewFile();
+        }
+        catch (IOException e) {
+            System.out.println("Failed to create output files");
+            e.printStackTrace();
+        }
+
+        Logger logger = new Logger(resultFileForFirstTwoMethods, resultFileForThirdMethod, resultFileForFourthMethod);
 
         QueryExecutor executor = new QueryExecutor(profilerRef, false, logger);
 
-        // todo set this up via args
-        Path filePath = Paths.get("/home/alin/projects/IN5020/TasteProfileService/src/Client/data/input.txt");
+        Path filePath = Paths.get(args[2]);
         try {
             Files.lines(filePath)
                     .map(Client::ParseQueryLine)
