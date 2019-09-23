@@ -58,7 +58,7 @@ public class Client {
 
         Logger logger = new Logger(resultFileForFirstTwoMethods, resultFileForThirdMethod, resultFileForFourthMethod);
 
-        QueryExecutor executor = new QueryExecutor(profilerRef, false, logger);
+        QueryExecutor executor = new QueryExecutor(profilerRef, clientSideCache, logger);
 
         Path filePath = Paths.get(args[2]);
         try {

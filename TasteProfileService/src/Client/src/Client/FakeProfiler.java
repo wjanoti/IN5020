@@ -1,26 +1,45 @@
 package Client;
 
-import Server.SongCounterImpl;
-import Server.TopThreeSongsImpl;
-import Server.TopThreeUsersImpl;
-import Server.UserCounterImpl;
+import Server.*;
 import TasteProfile.*;
 import org.omg.CORBA.*;
 import org.omg.CORBA.Object;
 
+import java.util.Random;
+
 public class FakeProfiler implements Profiler {
+    private Random rng;
+    public FakeProfiler() {
+        rng = new Random();
+    }
     @Override
     public int getTimesPlayed(String song_id) {
+        try {
+            Thread.sleep(rng.nextInt(100));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         return 0;
     }
 
     @Override
     public int getTimesPlayedByUser(String user_id, String song_id) {
+        try {
+            Thread.sleep(rng.nextInt(100));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         return 0;
     }
 
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
+        try {
+            Thread.sleep(rng.nextInt(100));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         TopThreeUsers result = new TopThreeUsersImpl();
 
         UserCounter userCounter = new UserCounterImpl();
@@ -37,6 +56,12 @@ public class FakeProfiler implements Profiler {
 
     @Override
     public TopThreeSongs getTopThreeSongsByUser(String user_id) {
+        try {
+            Thread.sleep(rng.nextInt(100));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         TopThreeSongs result = new TopThreeSongsImpl();
 
         SongCounter counter = new SongCounterImpl();
@@ -53,7 +78,23 @@ public class FakeProfiler implements Profiler {
 
     @Override
     public UserProfile getUserProfile(String user_id) {
-        return null;
+        try {
+            Thread.sleep(rng.nextInt(100));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        UserProfile impl = new UserProfileImpl();
+        impl.top_three_songs = getTopThreeSongsByUser(user_id);
+        impl.total_play_count = 100;
+        impl.user_id = user_id;
+        SongCounter counter = new SongCounterImpl();
+        counter.song_id = "song_id";
+        counter.songid_play_time = 10;
+        impl.songs = new SongCounter[10];
+        for (int i = 0; i < 10; i++) {
+            impl.songs[i] = counter;
+        }
+        return impl;
     }
 
     @Override

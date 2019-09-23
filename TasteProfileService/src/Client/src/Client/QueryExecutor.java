@@ -49,8 +49,7 @@ public class QueryExecutor {
                 songs = profile.top_three_songs;
             }
             else {
-                // todo add call to the server here for getUserProfile
-                UserProfile profile = null;
+                UserProfile profile = profilerRef.getUserProfile(userId);
                 cache.put(userId, profile);
                 songs = profile.top_three_songs;
             }
@@ -92,8 +91,7 @@ public class QueryExecutor {
                         .count();
             }
             else {
-                // todo add call to the server here for getUserProfile
-                UserProfile profile = null;
+                UserProfile profile = profilerRef.getUserProfile(userId);
                 cache.put(userId, profile);
                 timesPlayed = Arrays.stream(profile.songs)
                         .filter(sc -> sc.song_id.equals(songId))
