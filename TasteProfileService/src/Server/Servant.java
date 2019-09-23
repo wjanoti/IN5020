@@ -3,14 +3,17 @@ package Server;
 import TasteProfile.ProfilerPOA;
 import TasteProfile.TopThreeSongs;
 import TasteProfile.TopThreeUsers;
+import TasteProfile.UserProfile;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Implementation of the Profiler interface defined in IDL.
@@ -96,11 +99,103 @@ public class Servant extends ProfilerPOA {
 
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
-        return null;
+        final File dataDirectory = new File(this.dataDirectory);
+        HashMap<String, Integer> userSongMap = new HashMap<>();
+        UserCounterImpl[] userCounter = new UserCounterImpl[3];
+
+        for (File dataFile: dataDirectory.listFiles()) {
+            String line;
+            try {
+                BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                while ((line = reader.readLine()) != null) {
+                    String[] lineArray = line.split("\t");
+                    String songId = lineArray[0];
+                    String userId = lineArray[1];
+                    int songTimesPlayed = Integer.parseInt(lineArray[2]);
+                    if (songId.equals(song_id)) {
+                        userSongMap.putIfAbsent(userId, songTimesPlayed);
+                    }
+                }
+                reader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        HashMap<String, Integer> sortedUserSongMap = userSongMap.entrySet()
+                .stream()
+                .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
+
+        Iterator it = sortedUserSongMap.entrySet().iterator();
+        int counter = 0;
+        while (it.hasNext() && counter < 3) {
+            Map.Entry pair = (Map.Entry)it.next();
+            UserCounterImpl userCounterEntry = new UserCounterImpl();
+            userCounterEntry.setUser_id((String) pair.getKey());
+            userCounterEntry.setsongid_play_time((Integer) pair.getValue());
+            userCounter[counter] = userCounterEntry;
+            counter++;
+        }
+
+        Arrays.sort(userCounter);
+
+        TopThreeUsersImpl topThreeUsers = new TopThreeUsersImpl();
+        topThreeUsers.setTopThreeUsers(userCounter);
+
+        return topThreeUsers;
     }
 
     @Override
     public TopThreeSongs getTopThreeSongsByUser(String user_id) {
+        final File dataDirectory = new File(this.dataDirectory);
+        HashMap<String, Integer> songUserMap = new HashMap<>();
+        SongCounterImpl[] songCounter = new SongCounterImpl[3];
+
+        for (File dataFile: dataDirectory.listFiles()) {
+            String line;
+            try {
+                BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                while ((line = reader.readLine()) != null) {
+                    String[] lineArray = line.split("\t");
+                    String songId = lineArray[0];
+                    String userId = lineArray[1];
+                    int songTimesPlayed = Integer.parseInt(lineArray[2]);
+                    if (userId.equals(user_id)) {
+                        songUserMap.putIfAbsent(songId, songTimesPlayed);
+                    }
+                }
+                reader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        HashMap<String, Integer> sortedSongUserMap = songUserMap.entrySet()
+                .stream()
+                .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
+
+        Iterator it = sortedSongUserMap.entrySet().iterator();
+        int counter = 0;
+        while (it.hasNext() && counter < 3) {
+            Map.Entry pair = (Map.Entry)it.next();
+            SongCounterImpl songCounterEntry = new SongCounterImpl();
+            songCounterEntry.setSong_id((String) pair.getKey());
+            songCounterEntry.setsongid_play_time((Integer) pair.getValue());
+            songCounter[counter] = songCounterEntry;
+            counter++;
+        }
+
+        Arrays.sort(songCounter);
+        TopThreeSongsImpl topThreeSongs = new TopThreeSongsImpl();
+        topThreeSongs.setTopThreeSongs(songCounter);
+
+        return topThreeSongs;
+    }
+
+    @Override
+    public UserProfile getUserProfile(String user_id) {
         return null;
     }
 

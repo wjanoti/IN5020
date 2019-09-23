@@ -1,5 +1,7 @@
 package Server;
 
+import TasteProfile.TopThreeSongs;
+import TasteProfile.TopThreeUsers;
 import org.omg.CORBA.ORB;
 import org.omg.CosNaming.NameComponent;
 import org.omg.CosNaming.NamingContextExt;
