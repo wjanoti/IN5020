@@ -179,11 +179,13 @@ public class Servant extends ProfilerPOA {
             }
         }
 
+        // Order the users's songs descending by play count.
         HashMap<String, Integer> sortedSongUserMap = songUserMap.entrySet()
                 .stream()
                 .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
 
+        // Add the top 3 songs in the songCounter list.
         Iterator it = sortedSongUserMap.entrySet().iterator();
         int counter = 0;
         while (it.hasNext() && counter < 3) {
@@ -193,7 +195,9 @@ public class Servant extends ProfilerPOA {
             counter++;
         }
 
+        // Sort ascending by play count.
         Arrays.sort(songCounter);
+
         TopThreeSongsImpl topThreeSongs = new TopThreeSongsImpl();
         topThreeSongs.setTopThreeSongs(songCounter);
 
