@@ -23,8 +23,8 @@ public class Client {
     // Args: -ORBInitialPort <Port> <inputFile> <useClientCache> <serverUsesCache>
     public static void main(String[] args) throws IOException {
 
-        //Profiler profilerRef = InitializeORB(args);
-        Profiler profilerRef = new FakeProfiler();
+        Profiler profilerRef = InitializeORB(args);
+//        Profiler profilerRef = new FakeProfiler();
 
         boolean clientSideCache = Boolean.parseBoolean(args[3]);
         boolean serverSideCache = Boolean.parseBoolean(args[4]);
