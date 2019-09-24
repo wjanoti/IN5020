@@ -1,16 +1,12 @@
 package Server;
 
-import TasteProfile.TopThreeSongs;
-import TasteProfile.TopThreeUsers;
+import TasteProfile.*;
 import org.omg.CORBA.ORB;
 import org.omg.CosNaming.NameComponent;
 import org.omg.CosNaming.NamingContextExt;
 import org.omg.CosNaming.NamingContextExtHelper;
 import org.omg.PortableServer.POA;
 import org.omg.PortableServer.POAHelper;
-
-import TasteProfile.Profiler;
-import TasteProfile.ProfilerHelper;
 
 public class Server {
 

@@ -7,9 +7,12 @@ import TasteProfile.SongCounter;
  */
 public class SongCounterImpl extends SongCounter implements Comparable<SongCounterImpl> {
 
-    public void setSong_id(String songId) { this.song_id = songId; }
+    public SongCounterImpl() {
+        super();
+    }
 
-    public void setsongid_play_time(int songTimesPlayed) {
+    public SongCounterImpl(String songId, int songTimesPlayed) {
+        this.song_id = songId;
         this.songid_play_time = songTimesPlayed;
     }
 
