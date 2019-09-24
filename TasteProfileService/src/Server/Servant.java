@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toMap;
  */
 public class Servant extends ProfilerPOA {
 
+    // Path of the directory containing the data files.
     private String dataDirectory;
     private boolean useCaching;
     private Map<String, SongProfileImpl> songCache = new HashMap<>();
@@ -48,6 +49,11 @@ public class Servant extends ProfilerPOA {
         // TODO
     }
 
+    /**
+     * Returns how many times a song was played overall.
+     * @param song_id
+     * @return how many times a song was played by all users.
+     */
     @Override
     public int getTimesPlayed(String song_id) {
         AtomicInteger timesPlayed = new AtomicInteger();
@@ -59,6 +65,7 @@ public class Servant extends ProfilerPOA {
             e.printStackTrace();
         }
 
+        // Parse each data file
         Objects.requireNonNull(paths)
             .filter(Files::isRegularFile)
             .forEach(path -> {
@@ -69,6 +76,7 @@ public class Servant extends ProfilerPOA {
                             String songId = lineArray[0];
                             int songTimesPlayed = Integer.parseInt(lineArray[2]);
                             if (songId.equals(song_id)) {
+                                // increment timesPlayed counter
                                 timesPlayed.addAndGet(songTimesPlayed);
                             }
                         });
@@ -80,11 +88,18 @@ public class Servant extends ProfilerPOA {
         return timesPlayed.get();
     }
 
+    /**
+     * Returns an integer indicating how many times the song was listened to by a give user.
+     * @param user_id
+     * @param song_id
+     * @return number of times the song was listened to by the user.
+     */
     @Override
     public int getTimesPlayedByUser(String user_id, String song_id) {
         final File dataDirectory = new File(this.dataDirectory);
         int timesPlayedByUser = 0;
 
+        // Parse each data file line by line
         for (File dataFile: dataDirectory.listFiles()) {
             String line;
             try {
@@ -107,12 +122,18 @@ public class Servant extends ProfilerPOA {
         return timesPlayedByUser;
     }
 
+    /**
+     * Returns the top three listeners of a given song.
+     * @param song_id
+     * @return TopThreeUsers object containing the three top listeners of the song.
+     */
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
         final File dataDirectory = new File(this.dataDirectory);
         HashMap<String, Integer> userSongMap = new HashMap<>();
         UserCounterImpl[] userCounter = new UserCounterImpl[3];
 
+        // Parse each data file line by line
         for (File dataFile: dataDirectory.listFiles()) {
             String line;
             try {
@@ -154,12 +175,18 @@ public class Servant extends ProfilerPOA {
         return topThreeUsers;
     }
 
+    /**
+     * Returns the top three songs (in play count) for a given user.
+     * @param user_id
+     * @return TopThreeSongs containing the top three songs listened to by the user.
+     */
     @Override
     public TopThreeSongs getTopThreeSongsByUser(String user_id) {
         final File dataDirectory = new File(this.dataDirectory);
         HashMap<String, Integer> songUserMap = new HashMap<>();
         SongCounterImpl[] songCounter = new SongCounterImpl[3];
 
+        // Parse each data file line by line
         for (File dataFile: dataDirectory.listFiles()) {
             String line;
             try {
@@ -211,6 +238,7 @@ public class Servant extends ProfilerPOA {
         ArrayList<SongCounterImpl> songs = new ArrayList<SongCounterImpl>();
         String line;
 
+        // Parse each data file line by line
         for (File dataFile: dataDirectory.listFiles()) {
             try {
                 BufferedReader reader = new BufferedReader(new FileReader(dataFile));
@@ -230,11 +258,12 @@ public class Servant extends ProfilerPOA {
             }
 
         }
+
         return new UserProfileImpl(
-                user_id,
-                userTotalPlays,
-                songs.toArray(new SongCounterImpl[0]),
-                getTopThreeSongsByUser(user_id)
+            user_id,
+            userTotalPlays,
+            songs.toArray(new SongCounterImpl[0]),
+            getTopThreeSongsByUser(user_id)
         );
     }
 
