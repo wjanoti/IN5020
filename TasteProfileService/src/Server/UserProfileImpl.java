@@ -21,4 +21,16 @@ public class UserProfileImpl extends UserProfile {
         this.top_three_songs = topThreeSongs;
     }
 
+    @Override
+    public String toString() {
+        String ret = "User id: " + this.user_id  + " | ";
+        ret += " Total plays: " + this.total_play_count + " | ";
+        ret += " Top 3 Songs: " + this.top_three_songs + " | ";
+        String songIds = "";
+        for (SongCounter song: this.songs) {
+            songIds += song.song_id + " , ";
+        }
+        ret += " Songs: " + songIds;
+        return ret;
+    }
 }

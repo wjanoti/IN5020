@@ -15,6 +15,7 @@ public class UserCounterImpl extends UserCounter implements Comparable<UserCount
         this.user_id = userId;
         this.songid_play_time = songTimesPlayed;
     }
+
     @Override
     public int compareTo(UserCounterImpl o) {
         if (this.songid_play_time == o.songid_play_time) {

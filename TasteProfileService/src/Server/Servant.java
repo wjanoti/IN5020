@@ -1,9 +1,6 @@
 package Server;
 
-import TasteProfile.ProfilerPOA;
-import TasteProfile.TopThreeSongs;
-import TasteProfile.TopThreeUsers;
-import TasteProfile.UserProfile;
+import TasteProfile.*;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -39,7 +36,47 @@ public class Servant extends ProfilerPOA {
      * Populates the song cache
      */
     private void buildSongCache() {
-        // TODO
+        Stream<Path> paths = null;
+        HashMap<String, Integer> songPlays = new HashMap<>();
+        HashMap<String, List<UserCounterImpl>> songTopUsers = new HashMap<>();
+
+        try {
+            paths = Files.walk(Paths.get(this.dataDirectory));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Parse each data file and populate a hashmap with songs total plays.
+        Objects.requireNonNull(paths)
+            .filter(Files::isRegularFile)
+            .forEach(path -> {
+                try {
+                    Files.lines(path)
+                        .forEach(line -> {
+                            String[] lineArray = line.split("\t");
+                            String songId = lineArray[0];
+                            String userId = lineArray[1];
+                            int songTimesPlayed = Integer.parseInt(lineArray[2]);
+                            UserCounterImpl currentUser = new UserCounterImpl(userId, songTimesPlayed);
+                            songPlays.putIfAbsent(songId, songTimesPlayed);
+
+                            if (!songTopUsers.containsKey(songId)) {
+                                List<UserCounterImpl> topUsers = new ArrayList<UserCounterImpl>();
+                                songTopUsers.put(songId, topUsers);
+                            }
+
+                            songTopUsers.get(songId).add(currentUser);
+
+                            if (songPlays.containsKey(songId)) {
+                                songPlays.put(songId, songPlays.get(songId));
+                            }
+                        });
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+        System.out.println("asdasd");
+
     }
 
     /**
@@ -56,6 +93,10 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public int getTimesPlayed(String song_id) {
+        if (this.useCaching) {
+            return songCache.getOrDefault(song_id, new SongProfileImpl()).total_play_count;
+        }
+
         AtomicInteger timesPlayed = new AtomicInteger();
         Stream<Path> paths = null;
 
@@ -153,11 +194,13 @@ public class Servant extends ProfilerPOA {
             }
         }
 
+        // Order the songs descending by play count.
         HashMap<String, Integer> sortedUserSongMap = userSongMap.entrySet()
                 .stream()
                 .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
 
+        // Populate the userCounter array with the top 3 users.
         Iterator it = sortedUserSongMap.entrySet().iterator();
         int counter = 0;
         while (it.hasNext() && counter < 3) {
@@ -167,12 +210,10 @@ public class Servant extends ProfilerPOA {
             counter++;
         }
 
+        // Sort ascending by play count.
         Arrays.sort(userCounter);
 
-        TopThreeUsersImpl topThreeUsers = new TopThreeUsersImpl();
-        topThreeUsers.setTopThreeUsers(userCounter);
-
-        return topThreeUsers;
+        return new TopThreeUsersImpl(userCounter);
     }
 
     /**

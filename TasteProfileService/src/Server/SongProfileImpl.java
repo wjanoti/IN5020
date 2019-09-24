@@ -1,14 +1,17 @@
 package Server;
 
 import TasteProfile.SongProfile;
+import TasteProfile.TopThreeUsers;
 
 public class SongProfileImpl extends SongProfile {
 
-    public void setPlayCount(int count) {
-        this.total_play_count = count;
+    public SongProfileImpl() {
+        super();
     }
 
-    public void setTopThreeUsers(TopThreeUsersImpl top) {
-        this.top_three_users = top;
+    public SongProfileImpl(int totalPlayCount, TopThreeUsers topThreeUsers) {
+        this.total_play_count = totalPlayCount;
+        this.top_three_users = topThreeUsers;
     }
+
 }

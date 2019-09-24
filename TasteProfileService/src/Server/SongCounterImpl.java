@@ -25,4 +25,5 @@ public class SongCounterImpl extends SongCounter implements Comparable<SongCount
         }
         return -1;
     }
+
 }
