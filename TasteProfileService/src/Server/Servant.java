@@ -23,7 +23,6 @@ public class Servant extends ProfilerPOA {
     private Map<String, SongProfileImpl> songCache = new HashMap<>();
     private Map<String, UserProfileImpl> userCache = new HashMap<>();
 
-
     public Servant(String dataDirectory, boolean useCaching) {
         this.dataDirectory = dataDirectory;
         this.useCaching = useCaching;
@@ -37,6 +36,7 @@ public class Servant extends ProfilerPOA {
      */
     private void buildCache() {
         final File dataDirectory = new File(this.dataDirectory);
+        // Used when building the user cache, to replace less popular users with more popular ones.
         UserProfileImpl leastPopularUser = null;
 
         // Parse each data file line by line
@@ -53,16 +53,17 @@ public class Servant extends ProfilerPOA {
                     UserCounterImpl currentUser = new UserCounterImpl(userId, songTimesPlayed);
 
                     // update song cache
+                    SongProfileImpl songProfile;
                     if (!this.songCache.containsKey(songId)) {
                         TopThreeUsersImpl topThreeUsers = new TopThreeUsersImpl();
                         topThreeUsers.addUser(currentUser);
-                        SongProfileImpl songProfile = new SongProfileImpl(songTimesPlayed, topThreeUsers);
-                        this.songCache.put(songId, songProfile);
+                        songProfile = new SongProfileImpl(songTimesPlayed, topThreeUsers);
                     } else {
-                        SongProfileImpl songProfile = this.songCache.get(songId);
+                        songProfile = this.songCache.get(songId);
                         songProfile.updatePlayCount(songTimesPlayed);
                         songProfile.updateTopThreeUsers(currentUser);
                     }
+                    this.songCache.put(songId, songProfile);
 
                     UserProfileImpl currentUserProfile = new UserProfileImpl();
                     // create user profile
@@ -117,6 +118,8 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public int getTimesPlayed(String song_id) {
+        // try to find the song in cache, otherwise return 0 object, since all songs are on the
+        // cache, the requested song does not exist at all
         if (this.useCaching) {
             if (songCache.containsKey(song_id)) {
                 return songCache.get(song_id).total_play_count;
@@ -165,7 +168,7 @@ public class Servant extends ProfilerPOA {
     @Override
     public int getTimesPlayedByUser(String user_id, String song_id) {
         int timesPlayedByUser = 0;
-
+        // try to find the user in cache, otherwise parse the files
         if (this.useCaching && userCache.containsKey(user_id)) {
             SongCounter[] userSongs = userCache.get(user_id).songs;
             for (SongCounter userSong : userSongs) {
@@ -206,6 +209,8 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
+        // try to find the song in cache, otherwise return a an empty TopThreeUsers object, since all songs are on the
+        // cache, the requested song does not exist at all.
         if (this.useCaching) {
             if (songCache.containsKey(song_id)) {
                 return songCache.get(song_id).top_three_users;
@@ -268,8 +273,8 @@ public class Servant extends ProfilerPOA {
     public TopThreeSongs getTopThreeSongsByUser(String user_id) {
         TopThreeSongsImpl topThreeSongs = new TopThreeSongsImpl();
 
+        // try to find the user in cache, otherwise parse the files
         if (this.useCaching && userCache.containsKey(user_id)) {
-            System.out.println("Found user in cache");
             return userCache.get(user_id).top_three_songs;
         } else {
             final File dataDirectory = new File(this.dataDirectory);
