@@ -5,11 +5,18 @@ import TasteProfile.TopThreeSongs;
 import TasteProfile.UserProfile;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * This class is the implementation of the valuetype UserProfile defined in the IDL.
  */
 public class UserProfileImpl extends UserProfile implements Comparable<UserProfileImpl> {
+
+    /**
+     * Resizable list as buffer
+     */
+    private List<SongCounter> songCounterList = new ArrayList<>();
 
     public UserProfileImpl() {
         super();
@@ -27,7 +34,19 @@ public class UserProfileImpl extends UserProfile implements Comparable<UserProfi
      * @param newSong
      */
     public void updateTopThreeSongs(SongCounterImpl newSong) {
-        ((TopThreeSongsImpl) this.top_three_songs).addSong(newSong);
+        for (int i = this.top_three_songs.topThreeSongs.length - 1; i >= 0; i--) {
+            if (this.top_three_songs.topThreeSongs[i] == null
+                    || newSong.songid_play_time > this.top_three_songs.topThreeSongs[i].songid_play_time) {
+                // pushback the existing values
+                System.arraycopy(this.top_three_songs.topThreeSongs, i, this.top_three_songs.topThreeSongs, i + 1, this.top_three_songs.topThreeSongs.length - 1 - i);
+
+                // write the new one in it's place
+                this.top_three_songs.topThreeSongs[i] = newSong;
+            }
+            else {
+                break;
+            }
+        }
     }
 
     /**
@@ -54,5 +73,12 @@ public class UserProfileImpl extends UserProfile implements Comparable<UserProfi
             return 1;
         }
         return -1;
+    }
+
+    public void addSong(SongCounterImpl songCounter) {
+        // this is a very inefficient way to add stuff because we will create a new array everytime
+        this.songCounterList.add(songCounter);
+
+        this.songs = this.songCounterList.toArray(new SongCounter[0]);
     }
 }

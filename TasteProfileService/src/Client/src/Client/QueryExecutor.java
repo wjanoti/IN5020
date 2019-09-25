@@ -88,14 +88,16 @@ public class QueryExecutor {
                 UserProfile profile = cache.get(userId);
                 timesPlayed = Arrays.stream(profile.songs)
                         .filter(sc -> sc.song_id.equals(songId))
-                        .count();
+                        .mapToInt(songCounter -> songCounter.songid_play_time)
+                        .sum();
             }
             else {
                 UserProfile profile = profilerRef.getUserProfile(userId);
                 cache.put(userId, profile);
                 timesPlayed = Arrays.stream(profile.songs)
                         .filter(sc -> sc.song_id.equals(songId))
-                        .count();
+                        .mapToInt(songCounter -> songCounter.songid_play_time)
+                        .sum();
             }
         }
         else {
