@@ -1,9 +1,6 @@
 package Server;
 
-import TasteProfile.ProfilerPOA;
-import TasteProfile.TopThreeSongs;
-import TasteProfile.TopThreeUsers;
-import TasteProfile.UserProfile;
+import TasteProfile.*;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -30,32 +27,106 @@ public class Servant extends ProfilerPOA {
         this.dataDirectory = dataDirectory;
         this.useCaching = useCaching;
         if (this.useCaching) {
-            buildSongCache();
-            buildUserCache();
+            buildCache();
         }
     }
 
     /**
-     * Populates the song cache
+     * Populates song cache
      */
-    private void buildSongCache() {
-        // TODO
-    }
+    private void buildCache() {
+        final File dataDirectory = new File(this.dataDirectory);
+        // Used when building the user cache, to replace less popular users with more popular ones.
+        UserProfileImpl leastPopularUser = null;
 
-    /**
-     * Populates the user cache
-     */
-    private void buildUserCache() {
-        // TODO
+        // Parse each data file line by line
+        for (File dataFile: dataDirectory.listFiles()) {
+            String line;
+            try {
+                BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                while ((line = reader.readLine()) != null) {
+                    String[] lineArray = line.split("\t");
+                    String songId = lineArray[0];
+                    String userId = lineArray[1];
+                    int songTimesPlayed = Integer.parseInt(lineArray[2]);
+                    SongCounterImpl currentSong = new SongCounterImpl(songId, songTimesPlayed);
+                    UserCounterImpl currentUser = new UserCounterImpl(userId, songTimesPlayed);
+
+                    // update song cache
+                    SongProfileImpl songProfile;
+                    if (!this.songCache.containsKey(songId)) {
+                        TopThreeUsersImpl topThreeUsers = new TopThreeUsersImpl();
+                        topThreeUsers.addUser(currentUser);
+                        songProfile = new SongProfileImpl(songTimesPlayed, topThreeUsers);
+                    } else {
+                        songProfile = this.songCache.get(songId);
+                        songProfile.updatePlayCount(songTimesPlayed);
+                        songProfile.updateTopThreeUsers(currentUser);
+                    }
+                    this.songCache.put(songId, songProfile);
+
+                    UserProfileImpl currentUserProfile = new UserProfileImpl();
+                    // create user profile
+                    if (!this.userCache.containsKey(userId)) {
+                        TopThreeSongsImpl topThreeSongs = new TopThreeSongsImpl();
+                        ArrayList<SongCounter> userSongs = new ArrayList<>();
+                        topThreeSongs.addSong(currentSong);
+                        userSongs.add(currentSong);
+                        currentUserProfile = new UserProfileImpl(userId, songTimesPlayed, userSongs.toArray(new SongCounter[0]), topThreeSongs);
+                    } else {
+                        currentUserProfile = this.userCache.get(userId);
+                        ArrayList<SongCounter> userSongs = new ArrayList<>(Arrays.asList(currentUserProfile.songs));
+                        userSongs.add(currentSong);
+                        currentUserProfile.updatePlayCount(songTimesPlayed);
+                        currentUserProfile.updateTopThreeSongs(currentSong);
+                        currentUserProfile.setSongs(userSongs);
+                    }
+
+                    if (leastPopularUser == null) {
+                        leastPopularUser = currentUserProfile;
+                    }
+
+                    // update user cache
+                    if (userCache.size() < 1000) {
+                        // update the least popular user if the current one is less popular and we still have space on the cache.
+                        if (currentUserProfile.total_play_count < leastPopularUser.total_play_count) {
+                            leastPopularUser = currentUserProfile;
+                        }
+                        this.userCache.put(userId, currentUserProfile);
+                    } else {
+                        // if the cache is full and the current user is more popular we replace it and update the least popular user.
+                        if (currentUserProfile.total_play_count > leastPopularUser.total_play_count) {
+                            this.userCache.remove(leastPopularUser.user_id);
+                            this.userCache.put(userId, currentUserProfile);
+                            Comparator<? super Map.Entry<String, UserProfileImpl>> comp = (e1, e2) -> e1.getValue().compareTo(e2.getValue());
+                            leastPopularUser = this.userCache.entrySet().stream().min(comp).get().getValue();
+                        }
+                    }
+                }
+                reader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("Finished building cache");
     }
 
     /**
      * Returns how many times a song was played overall.
      * @param song_id
-     * @return how many times a song was played by all users.
+     * @return how many times a song was played by all users
      */
     @Override
     public int getTimesPlayed(String song_id) {
+        // try to find the song in cache, otherwise return 0 object, since all songs are on the
+        // cache, the requested song does not exist at all
+        if (this.useCaching) {
+            if (songCache.containsKey(song_id)) {
+                return songCache.get(song_id).total_play_count;
+            }
+            return 0;
+        }
+
         AtomicInteger timesPlayed = new AtomicInteger();
         Stream<Path> paths = null;
 
@@ -96,26 +167,35 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public int getTimesPlayedByUser(String user_id, String song_id) {
-        final File dataDirectory = new File(this.dataDirectory);
         int timesPlayedByUser = 0;
-
-        // Parse each data file line by line
-        for (File dataFile: dataDirectory.listFiles()) {
-            String line;
-            try {
-                BufferedReader reader = new BufferedReader(new FileReader(dataFile));
-                while ((line = reader.readLine()) != null && timesPlayedByUser == 0) {
-                    String[] lineArray = line.split("\t");
-                    String songId = lineArray[0];
-                    String userId = lineArray[1];
-                    if (songId.equals(song_id) && userId.equals(user_id)) {
-                        timesPlayedByUser = Integer.parseInt(lineArray[2]);
-                        break;
-                    }
+        // try to find the user in cache, otherwise parse the files
+        if (this.useCaching && userCache.containsKey(user_id)) {
+            SongCounter[] userSongs = userCache.get(user_id).songs;
+            for (SongCounter userSong : userSongs) {
+                if (userSong.song_id.equals(song_id)) {
+                    return userSong.songid_play_time;
                 }
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+            }
+        } else {
+            final File dataDirectory = new File(this.dataDirectory);
+            // Parse each data file line by line
+            for (File dataFile : dataDirectory.listFiles()) {
+                String line;
+                try {
+                    BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                    while ((line = reader.readLine()) != null && timesPlayedByUser == 0) {
+                        String[] lineArray = line.split("\t");
+                        String songId = lineArray[0];
+                        String userId = lineArray[1];
+                        if (songId.equals(song_id) && userId.equals(user_id)) {
+                            timesPlayedByUser = Integer.parseInt(lineArray[2]);
+                            break;
+                        }
+                    }
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
 
@@ -129,6 +209,15 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
+        // try to find the song in cache, otherwise return a an empty TopThreeUsers object, since all songs are on the
+        // cache, the requested song does not exist at all.
+        if (this.useCaching) {
+            if (songCache.containsKey(song_id)) {
+                return songCache.get(song_id).top_three_users;
+            }
+            return new TopThreeUsersImpl(new UserCounter[3]);
+        }
+
         final File dataDirectory = new File(this.dataDirectory);
         HashMap<String, Integer> userSongMap = new HashMap<>();
         UserCounterImpl[] userCounter = new UserCounterImpl[3];
@@ -153,11 +242,13 @@ public class Servant extends ProfilerPOA {
             }
         }
 
+        // Order the songs descending by play count.
         HashMap<String, Integer> sortedUserSongMap = userSongMap.entrySet()
                 .stream()
                 .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
 
+        // Populate the userCounter array with the top 3 users.
         Iterator it = sortedUserSongMap.entrySet().iterator();
         int counter = 0;
         while (it.hasNext() && counter < 3) {
@@ -167,12 +258,10 @@ public class Servant extends ProfilerPOA {
             counter++;
         }
 
+        // Sort ascending by play count.
         Arrays.sort(userCounter);
 
-        TopThreeUsersImpl topThreeUsers = new TopThreeUsersImpl();
-        topThreeUsers.setTopThreeUsers(userCounter);
-
-        return topThreeUsers;
+        return new TopThreeUsersImpl(userCounter);
     }
 
     /**
@@ -182,51 +271,58 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public TopThreeSongs getTopThreeSongsByUser(String user_id) {
-        final File dataDirectory = new File(this.dataDirectory);
-        HashMap<String, Integer> songUserMap = new HashMap<>();
-        SongCounterImpl[] songCounter = new SongCounterImpl[3];
-
-        // Parse each data file line by line
-        for (File dataFile: dataDirectory.listFiles()) {
-            String line;
-            try {
-                BufferedReader reader = new BufferedReader(new FileReader(dataFile));
-                while ((line = reader.readLine()) != null) {
-                    String[] lineArray = line.split("\t");
-                    String songId = lineArray[0];
-                    String userId = lineArray[1];
-                    int songTimesPlayed = Integer.parseInt(lineArray[2]);
-                    if (userId.equals(user_id)) {
-                        songUserMap.putIfAbsent(songId, songTimesPlayed);
-                    }
-                }
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // Order the users's songs descending by play count.
-        HashMap<String, Integer> sortedSongUserMap = songUserMap.entrySet()
-                .stream()
-                .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
-
-        // Add the top 3 songs in the songCounter list.
-        Iterator it = sortedSongUserMap.entrySet().iterator();
-        int counter = 0;
-        while (it.hasNext() && counter < 3) {
-            Map.Entry pair = (Map.Entry)it.next();
-            SongCounterImpl songCounterEntry = new SongCounterImpl((String) pair.getKey(), (Integer) pair.getValue());
-            songCounter[counter] = songCounterEntry;
-            counter++;
-        }
-
-        // Sort ascending by play count.
-        Arrays.sort(songCounter);
-
         TopThreeSongsImpl topThreeSongs = new TopThreeSongsImpl();
-        topThreeSongs.setTopThreeSongs(songCounter);
+
+        // try to find the user in cache, otherwise parse the files
+        if (this.useCaching && userCache.containsKey(user_id)) {
+            return userCache.get(user_id).top_three_songs;
+        } else {
+            final File dataDirectory = new File(this.dataDirectory);
+            HashMap<String, Integer> songUserMap = new HashMap<>();
+            SongCounterImpl[] songCounter = new SongCounterImpl[3];
+
+            // Parse each data file line by line
+            for (File dataFile : dataDirectory.listFiles()) {
+                String line;
+                try {
+                    BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                    while ((line = reader.readLine()) != null) {
+                        String[] lineArray = line.split("\t");
+                        String songId = lineArray[0];
+                        String userId = lineArray[1];
+                        int songTimesPlayed = Integer.parseInt(lineArray[2]);
+                        if (userId.equals(user_id)) {
+                            songUserMap.putIfAbsent(songId, songTimesPlayed);
+                        }
+                    }
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            // Order the users's songs descending by play count.
+            HashMap<String, Integer> sortedSongUserMap = songUserMap.entrySet()
+                    .stream()
+                    .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+                    .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, LinkedHashMap::new));
+
+            // Add the top 3 songs in the songCounter list.
+            Iterator it = sortedSongUserMap.entrySet().iterator();
+            int counter = 0;
+            while (it.hasNext() && counter < 3) {
+                Map.Entry pair = (Map.Entry) it.next();
+                SongCounterImpl songCounterEntry = new SongCounterImpl((String) pair.getKey(), (Integer) pair.getValue());
+                songCounter[counter] = songCounterEntry;
+                counter++;
+            }
+
+            // Sort ascending by play count.
+            Arrays.sort(songCounter);
+
+            topThreeSongs.setTopThreeSongs(songCounter);
+
+        }
 
         return topThreeSongs;
     }
