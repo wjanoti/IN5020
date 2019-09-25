@@ -44,8 +44,8 @@ public class Server {
 
             // System.out.println("getTimesPlayed (no cache): " + servant.getTimesPlayed("SOIIUFN12A6D4F9392"));
             // System.out.println("getTimesPlayedByUser (no cache): " + servant.getTimesPlayedByUser("b64cdd1a0bd907e5e00b39e345194768e330d652", "SONKFWL12A6D4F93FE"));
-           //  System.out.println("getTopThreeUsersBySong (no cache): " + servant.getTopThreeUsersBySong( "asd"));
-            // System.out.println("getTopThreeSongsByUser (no cache): " + servant.getTopThreeSongsByUser( "b64cdd1a0bd907e5e00b39e345194768e330d652"));
+            // System.out.println("getTopThreeUsersBySong (no cache): " + servant.getTopThreeUsersBySong( "asd"));
+            // System.out.println("getTopThreeSongsByUser (no cache): " + servant.getTopThreeSongsByUser( "22078df22561beeee86e9a9c33fe265a7a23eaa5"));
             // System.out.println("getUserProfile (no cache): " + servant.getUserProfile( "b64cdd1a0bd907e5e00b39e345194768e330d652"));
             // Wait for remote invocations
             System.out.println("Taste Profile Server running...");

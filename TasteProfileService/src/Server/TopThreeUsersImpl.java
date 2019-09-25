@@ -41,12 +41,4 @@ public class TopThreeUsersImpl extends TopThreeUsers {
         }
     }
 
-    @Override
-    public String toString() {
-        StringBuilder res = new StringBuilder();
-        for (UserCounter user: this.topThreeUsers) {
-            res.append(user.user_id).append(" ").append(user.songid_play_time).append(" times.\n");
-        }
-        return res.toString();
-    }
 }
