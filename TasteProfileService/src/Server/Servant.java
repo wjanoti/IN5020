@@ -33,12 +33,10 @@ public class Servant extends ProfilerPOA {
     }
 
     /**
-     * Populates the song cache
+     * Populates song cache
      */
     private void buildSongCache() {
         Stream<Path> paths = null;
-        HashMap<String, Integer> songPlays = new HashMap<>();
-        HashMap<String, List<UserCounterImpl>> songTopUsers = new HashMap<>();
 
         try {
             paths = Files.walk(Paths.get(this.dataDirectory));
@@ -58,25 +56,23 @@ public class Servant extends ProfilerPOA {
                             String userId = lineArray[1];
                             int songTimesPlayed = Integer.parseInt(lineArray[2]);
                             UserCounterImpl currentUser = new UserCounterImpl(userId, songTimesPlayed);
-                            songPlays.putIfAbsent(songId, songTimesPlayed);
-
-                            if (!songTopUsers.containsKey(songId)) {
-                                List<UserCounterImpl> topUsers = new ArrayList<UserCounterImpl>();
-                                songTopUsers.put(songId, topUsers);
+                            if (!this.songCache.containsKey(songId)) {
+                                TopThreeUsersImpl topThreeUsers = new TopThreeUsersImpl();
+                                topThreeUsers.addUser(currentUser);
+                                SongProfileImpl songProfile = new SongProfileImpl(songTimesPlayed, topThreeUsers);
+                                this.songCache.put(songId, songProfile);
+                            } else {
+                                SongProfileImpl songProfile = this.songCache.get(songId);
+                                songProfile.updatePlayCount(songTimesPlayed);
+                                songProfile.updateTopThreeUsers(currentUser);
                             }
 
-                            songTopUsers.get(songId).add(currentUser);
-
-                            if (songPlays.containsKey(songId)) {
-                                songPlays.put(songId, songPlays.get(songId));
-                            }
                         });
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
-        System.out.println("asdasd");
-
+        System.out.println("Finished building song cache");
     }
 
     /**
@@ -89,12 +85,15 @@ public class Servant extends ProfilerPOA {
     /**
      * Returns how many times a song was played overall.
      * @param song_id
-     * @return how many times a song was played by all users.
+     * @return how many times a song was played by all users
      */
     @Override
     public int getTimesPlayed(String song_id) {
         if (this.useCaching) {
-            return songCache.getOrDefault(song_id, new SongProfileImpl()).total_play_count;
+            if (songCache.containsKey(song_id)) {
+                return songCache.get(song_id).total_play_count;
+            }
+            return 0;
         }
 
         AtomicInteger timesPlayed = new AtomicInteger();
@@ -170,6 +169,13 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
+        if (this.useCaching) {
+            if (songCache.containsKey(song_id)) {
+                return songCache.get(song_id).top_three_users;
+            }
+            return new TopThreeUsersImpl(new UserCounter[3]);
+        }
+
         final File dataDirectory = new File(this.dataDirectory);
         HashMap<String, Integer> userSongMap = new HashMap<>();
         UserCounterImpl[] userCounter = new UserCounterImpl[3];

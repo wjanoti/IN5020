@@ -14,4 +14,19 @@ public class SongProfileImpl extends SongProfile {
         this.top_three_users = topThreeUsers;
     }
 
+    /**
+     * Used when building the cache, increments a song total play count
+     * @param playCount
+     */
+    public void updatePlayCount(int playCount) {
+        this.total_play_count += playCount;
+    }
+
+    /**
+     * Used when building the cache, updates the associated topThreeUsers list of a song.
+     * @param newUser
+     */
+    public void updateTopThreeUsers(UserCounterImpl newUser) {
+        ((TopThreeUsersImpl) this.top_three_users).addUser(newUser);
+    }
 }

@@ -42,9 +42,9 @@ public class Server {
             NameComponent[] path = ncRef.to_name(name);
             ncRef.rebind(path, pref);
 
-            // System.out.println("getTimesPlayed (no cache): " + servant.getTimesPlayed("SOUDSFN12A8C144B74"));
+            // System.out.println("getTimesPlayed (no cache): " + servant.getTimesPlayed("SOIIUFN12A6D4F9392"));
             // System.out.println("getTimesPlayedByUser (no cache): " + servant.getTimesPlayedByUser("b64cdd1a0bd907e5e00b39e345194768e330d652", "SONKFWL12A6D4F93FE"));
-            // System.out.println("getTopThreeUsersBySong (no cache): " + servant.getTopThreeUsersBySong( "SONKFWL12A6D4F93FE"));
+           //  System.out.println("getTopThreeUsersBySong (no cache): " + servant.getTopThreeUsersBySong( "asd"));
             // System.out.println("getTopThreeSongsByUser (no cache): " + servant.getTopThreeSongsByUser( "b64cdd1a0bd907e5e00b39e345194768e330d652"));
             // System.out.println("getUserProfile (no cache): " + servant.getUserProfile( "b64cdd1a0bd907e5e00b39e345194768e330d652"));
             // Wait for remote invocations
