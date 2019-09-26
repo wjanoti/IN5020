@@ -30,39 +30,21 @@ public class UserProfileImpl extends UserProfile implements Comparable<UserProfi
     }
 
     /**
-     * Used when building the cache, updates the associated topThreeSongs list of a user.
+     * Used when building the cache, updates the associated topThreeSongs list of a user.user_id
+     * Keeps the order as it is required.
      * @param newSong
      */
     public void updateTopThreeSongs(SongCounterImpl newSong) {
-        for (int i = this.top_three_songs.topThreeSongs.length - 1; i >= 0; i--) {
+        for (int i = 0; i < 3; i++) {
             if (this.top_three_songs.topThreeSongs[i] == null
-                    || newSong.songid_play_time > this.top_three_songs.topThreeSongs[i].songid_play_time) {
-                // pushback the existing values
-                System.arraycopy(this.top_three_songs.topThreeSongs, i, this.top_three_songs.topThreeSongs, i + 1, this.top_three_songs.topThreeSongs.length - 1 - i);
-
-                // write the new one in it's place
+                    || newSong.songid_play_time > this.top_three_songs.topThreeSongs[i].songid_play_time)
+            {
+                if (i > 0) {
+                    this.top_three_songs.topThreeSongs[i - 1] = this.top_three_songs.topThreeSongs[i];
+                }
                 this.top_three_songs.topThreeSongs[i] = newSong;
             }
-            else {
-                break;
-            }
         }
-    }
-
-    /**
-     * Used when building the cache, increments a user total play count
-     * @param playCount
-     */
-    public void updatePlayCount(int playCount) {
-        this.total_play_count += playCount;
-    }
-
-    /**
-     * Used when building the cache, set the song list for a user.
-     * @param songList
-     */
-    public void setSongs(ArrayList<SongCounter> songList) {
-        this.songs = songList.toArray(new SongCounter[0]);
     }
 
     @Override

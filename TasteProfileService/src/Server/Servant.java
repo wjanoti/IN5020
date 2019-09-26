@@ -87,6 +87,7 @@ public class Servant extends ProfilerPOA {
                     String line;
                     try {
                         BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                        // todo this can be parallelized using reader.lines()
                         while ((line = reader.readLine()) != null) {
                             String[] lineArray = line.split("\t");
                             String songId = lineArray[0];
@@ -160,6 +161,7 @@ public class Servant extends ProfilerPOA {
         }
 
         // Parse each data file
+        // todo here we can easily switch to parallelStream
         Objects.requireNonNull(paths)
             .filter(Files::isRegularFile)
             .forEach(path -> {
@@ -202,6 +204,7 @@ public class Servant extends ProfilerPOA {
         } else {
             final File dataDirectory = new File(this.dataDirectory);
             // Parse each data file line by line
+            // todo turn this into a stream to be able to parallelStream it
             for (File dataFile : dataDirectory.listFiles()) {
                 String line;
                 try {
@@ -264,6 +267,7 @@ public class Servant extends ProfilerPOA {
                 e.printStackTrace();
             }
         }
+        // todo an alternative approach to sorting would be to use the pushback stuff as we encounter it
 
         // Order the songs descending by play count.
         HashMap<String, Integer> sortedUserSongMap = userSongMap.entrySet()
@@ -344,7 +348,6 @@ public class Servant extends ProfilerPOA {
             Arrays.sort(songCounter);
 
             topThreeSongs.setTopThreeSongs(songCounter);
-
         }
 
         return topThreeSongs;
@@ -363,9 +366,11 @@ public class Servant extends ProfilerPOA {
 
         String line;
         // Parse each data file line by line
+        // todo switch this to streams
         for (File dataFile: dataDirectory.listFiles()) {
             try {
                 BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+                // todo this can be turned to reader.lines().parallelStream()
                 while ((line = reader.readLine()) != null) {
                     String[] lineArray = line.split("\t");
                     String songId = lineArray[0];
@@ -378,7 +383,7 @@ public class Servant extends ProfilerPOA {
                         // if the song has been seen before, increment the value
                         if (sortedSongs.containsKey(songId)) {
                             Integer currentValue = sortedSongs.get(songId);
-                            sortedSongs.put(songId, currentValue + 1);
+                            sortedSongs.put(songId, currentValue + playCount);
                         }
                         else {
                             // create a new entry in the map
@@ -409,11 +414,6 @@ public class Servant extends ProfilerPOA {
             userProfile.updateTopThreeSongs(sc);
         }
 
-        return new UserProfileImpl(
-            user_id,
-            userTotalPlays,
-            songCounters.toArray(new SongCounter[0]),
-            impl
-        );
+        return userProfile;
     }
 }

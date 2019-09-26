@@ -59,8 +59,10 @@ public class QueryExecutor {
         }
 
         for (SongCounter songCounter:songs.topThreeSongs) {
-            String line = String.format("Song %s was played %d times.", songCounter.song_id, songCounter.songid_play_time);
-            logger.LogLine("getTopThreeSongsByUser", line);
+            if (songCounter != null) {
+                String line = String.format("Song %s was played %d times.", songCounter.song_id, songCounter.songid_play_time);
+                logger.LogLine("getTopThreeSongsByUser", line);
+            }
         }
     }
 
@@ -68,8 +70,10 @@ public class QueryExecutor {
         TopThreeUsers users = profilerRef.getTopThreeUsersBySong(songId);
 
         for (UserCounter userCounter:users.topThreeUsers) {
-            String line = String.format("User %s played %d times.", userCounter.user_id, userCounter.songid_play_time);
-            logger.LogLine("getTopThreeUsersBySong", line);
+            if (userCounter != null) {
+                String line = String.format("User %s played %d times.", userCounter.user_id, userCounter.songid_play_time);
+                logger.LogLine("getTopThreeUsersBySong", line);
+            }
         }
     }
 

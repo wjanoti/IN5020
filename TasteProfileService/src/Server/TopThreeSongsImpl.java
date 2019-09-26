@@ -22,23 +22,4 @@ public class TopThreeSongsImpl extends TopThreeSongs {
         this.topThreeSongs = topThreeSongs;
     }
 
-    /**
-     * Used when building the cache. Adds a song to the list if its play count is greater than any one of the others.
-     * @param newSong
-     */
-    public void addSong(SongCounterImpl newSong) {
-        for (int i = 0; i < this.topThreeSongs.length; i++) {
-            if (this.topThreeSongs[i] == null) {
-                this.topThreeSongs[i] = newSong;
-                return;
-            }
-        }
-        if (this.topThreeSongs[2] != null) {
-            Arrays.sort(this.topThreeSongs);
-            if (newSong.songid_play_time > this.topThreeSongs[0].songid_play_time) {
-                this.topThreeSongs[0] = newSong;
-            }
-        }
-    }
-
 }

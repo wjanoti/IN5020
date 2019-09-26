@@ -22,23 +22,4 @@ public class TopThreeUsersImpl extends TopThreeUsers {
         this.topThreeUsers = topThreeUsers;
     }
 
-    /**
-     * Used when building the cache. Adds a user to the list if its play count is greater than any one of the others.
-     * @param newUser
-     */
-    public void addUser(UserCounterImpl newUser) {
-        for (int i = 0; i < this.topThreeUsers.length; i++) {
-            if (this.topThreeUsers[i] == null) {
-                this.topThreeUsers[i] = newUser;
-                return;
-            }
-        }
-        if (this.topThreeUsers[2] != null) {
-            Arrays.sort(this.topThreeUsers);
-            if (newUser.songid_play_time > this.topThreeUsers[0].songid_play_time) {
-                this.topThreeUsers[0] = newUser;
-            }
-        }
-    }
-
 }
