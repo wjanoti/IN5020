@@ -6,6 +6,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Class responsible for routing the queries to the correct endpoint on the remote object
+ */
 public class QueryExecutor {
 
     private Profiler profilerRef;

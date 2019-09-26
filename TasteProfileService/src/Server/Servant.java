@@ -42,6 +42,10 @@ public class Servant extends ProfilerPOA {
         }
     }
 
+    /**
+     * Builds the map of user popularities. Will be used in the cache building phase to determine which users
+     * are the most popular
+     */
     private void buildPopularitiesMaps() {
         final File dataDirectory = new File(this.dataDirectory);
 

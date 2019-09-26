@@ -23,12 +23,14 @@ public class Client {
     // Args: -ORBInitialPort <Port> <inputFile> <useClientCache> <serverUsesCache>
     public static void main(String[] args) throws IOException {
 
+        // initialize ORB
         Profiler profilerRef = InitializeORB(args);
-//        Profiler profilerRef = new FakeProfiler();
 
+        // parse arguments
         boolean clientSideCache = Boolean.parseBoolean(args[3]);
         boolean serverSideCache = Boolean.parseBoolean(args[4]);
 
+        // determine filenames
         String filenameBase;
         if (!clientSideCache && !serverSideCache) {
             filenameBase = "naive.txt";
@@ -56,10 +58,11 @@ public class Client {
             e.printStackTrace();
         }
 
+        // Initialize logger and executor
         Logger logger = new Logger(resultFileForFirstTwoMethods, resultFileForThirdMethod, resultFileForFourthMethod);
-
         QueryExecutor executor = new QueryExecutor(profilerRef, clientSideCache, logger);
 
+        // Start parsing the input file and execute queries in there iteratively.
         Path filePath = Paths.get(args[2]);
         try {
             Files.lines(filePath)
