@@ -23,8 +23,8 @@ public class Servant extends ProfilerPOA {
     // Path of the directory containing the data files.
     private String dataDirectory;
     private boolean useCaching;
-    private Map<String, SongProfileImpl> songCache = new HashMap<>((int)(4 * 1e4));
-    private Map<String, UserProfileImpl> userCache = new HashMap<>((int) 1e3);
+    private Map<String, SongProfileImpl> songCache = new ConcurrentHashMap<>((int)(4 * 1e4));
+    private Map<String, UserProfileImpl> userCache = new ConcurrentHashMap<>((int) 1e3);
 
     private Map<String, Integer> userPopularity = new ConcurrentHashMap<>((int)1e6);
 
@@ -32,9 +32,13 @@ public class Servant extends ProfilerPOA {
         this.dataDirectory = dataDirectory;
         this.useCaching = useCaching;
         if (this.useCaching) {
+            long start = System.currentTimeMillis();
             buildPopularitiesMaps();
-            System.out.println("Built popularity maps");
+            System.out.println("Finished building user popularity map");
             buildCaches();
+            System.out.println("Finished building user and song caches");
+            long elapsed = System.currentTimeMillis() - start;
+            System.out.println("Building caches took " + elapsed + " ms.");
         }
     }
 
@@ -68,10 +72,11 @@ public class Servant extends ProfilerPOA {
     }
 
     /**
-     * Populates song cache
+     * Populates song and user cache
      */
     private void buildCaches() {
         final File dataDirectory = new File(this.dataDirectory);
+
         // build the top 1000 users
         List<String> topUsers = userPopularity.entrySet().stream().sorted((entry1, entry2) -> {
             return -entry1.getValue().compareTo(entry2.getValue());
@@ -132,7 +137,6 @@ public class Servant extends ProfilerPOA {
                         e.printStackTrace();
                     }
                 });
-        System.out.println("Finished building cache");
     }
 
     /**
@@ -142,6 +146,13 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public int getTimesPlayed(String song_id) {
+        try {
+            // sleep 80 seconds to mimic transfer latency
+            Thread.sleep(80);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // try to find the song in cache, otherwise return 0 object, since all songs are on the
         // cache, the requested song does not exist at all
         if (this.useCaching) {
@@ -192,6 +203,13 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public int getTimesPlayedByUser(String user_id, String song_id) {
+        try {
+            // sleep 80 seconds to mimic transfer latency
+            Thread.sleep(80);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         int timesPlayedByUser = 0;
         // try to find the user in cache, otherwise parse the files
         if (this.useCaching && userCache.containsKey(user_id)) {
@@ -235,6 +253,13 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public TopThreeUsers getTopThreeUsersBySong(String song_id) {
+        try {
+            // sleep 80 seconds to mimic transfer latency
+            Thread.sleep(80);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         // try to find the song in cache, otherwise return a an empty TopThreeUsers object, since all songs are on the
         // cache, the requested song does not exist at all.
         if (this.useCaching) {
@@ -298,6 +323,13 @@ public class Servant extends ProfilerPOA {
      */
     @Override
     public TopThreeSongs getTopThreeSongsByUser(String user_id) {
+        try {
+            // sleep 80 seconds to mimic transfer latency
+            Thread.sleep(80);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         TopThreeSongsImpl topThreeSongs = new TopThreeSongsImpl();
 
         // try to find the user in cache, otherwise parse the files
@@ -355,6 +387,13 @@ public class Servant extends ProfilerPOA {
 
     @Override
     public UserProfile getUserProfile(String user_id) {
+        try {
+            // sleep 80 seconds to mimic transfer latency
+            Thread.sleep(80);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         if (this.useCaching && this.userCache.containsKey(user_id)) {
             return this.userCache.get(user_id);
         }
