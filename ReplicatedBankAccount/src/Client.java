@@ -1,6 +1,4 @@
-import spread.SpreadConnection;
-import spread.SpreadException;
-import spread.SpreadGroup;
+import spread.*;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -8,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class Client {
+public class Client implements AdvancedMessageListener {
 
     private SpreadConnection connection;
     private String serverAddress;
@@ -49,7 +47,11 @@ public class Client {
         try {
             // connect to server
             connection = new SpreadConnection();
-            connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, false);
+            connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, true);
+
+            // subscribe to messages
+            connection.add(this);
+
             // join group
             group = new SpreadGroup();
             group.join(connection, accountName);
@@ -67,5 +69,21 @@ public class Client {
             e.printStackTrace();
         }
         System.out.println("Client disconnected successfully.");
+    }
+
+    @Override
+    public void regularMessageReceived(SpreadMessage spreadMessage) {
+
+    }
+
+    @Override
+    public void membershipMessageReceived(SpreadMessage spreadMessage) {
+        MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
+        if (membershipInfo.isCausedByJoin()) {
+            System.out.println("Someone joined.");
+        } else if (membershipInfo.isCausedByDisconnect() || membershipInfo.isCausedByLeave()) {
+            System.out.println("Someone left.");
+        }
+        System.out.println(spreadMessage.getMembershipInfo().getMembers().length + " replicas.");
     }
 }

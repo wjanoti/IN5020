@@ -6,7 +6,9 @@ public class AccountReplica {
             System.exit(1);
         }
         Client client = new Client(args);
-        System.exit(0);
+        while (true) {
+
+        }
     }
 
 }
