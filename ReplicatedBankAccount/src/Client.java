@@ -18,6 +18,7 @@ public class Client implements AdvancedMessageListener {
      * so it's hardcoded here. Change it as needed.
      */
     int serverPort = 4803;
+    State state;
     UUID clientId;
     private double balance;
     private List<Transaction> executedList;
@@ -25,7 +26,6 @@ public class Client implements AdvancedMessageListener {
     private int orderCount;
     private int outstandingCounter;
     private SpreadGroup group;
-
 
     public Client(String[] args) {
         clientId = UUID.randomUUID();
@@ -41,10 +41,20 @@ public class Client implements AdvancedMessageListener {
             inputFilePath = args[3];
         }
         connect();
+        // TODO: wait until all replicas have joined.
+        process();
     }
 
-    public void connect() {
+    private void process() {
+        // TODO: process user commands or input file.
+    }
+
+    /**
+     * Connects to the Spread server and joins the group.
+     */
+    private void connect() {
         try {
+            this.state = State.CONNECTING;
             // connect to server
             connection = new SpreadConnection();
             connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, true);
@@ -62,8 +72,13 @@ public class Client implements AdvancedMessageListener {
         }
     }
 
-    public void disconnect() {
+    /**
+     * Disconnects from the Spread server and leaves the group.
+     */
+    private void disconnect() {
+        // TODO: call this on the "exit" command.
         try {
+            group.leave();
             connection.disconnect();
         } catch (SpreadException e) {
             e.printStackTrace();
@@ -73,11 +88,12 @@ public class Client implements AdvancedMessageListener {
 
     @Override
     public void regularMessageReceived(SpreadMessage spreadMessage) {
-
+        // TODO: deal with the message received. 
     }
 
     @Override
     public void membershipMessageReceived(SpreadMessage spreadMessage) {
+        // TODO: update group accordingly. Multicast the state to all replicas.
         MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
         if (membershipInfo.isCausedByJoin()) {
             System.out.println("Someone joined.");
