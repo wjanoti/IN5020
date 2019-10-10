@@ -67,9 +67,11 @@ public class Client implements AdvancedMessageListener {
         setState(State.RUNNING);
         if (inputFilePath == null) {
             Scanner scanner = new Scanner(System.in);
-            String command = scanner.nextLine().trim();
+            String[] line = scanner.nextLine().trim().split("\\s+");
+            String command = line[0];
             switch (command) {
                 case "getQuickBalance":
+                    System.out.println("Local balance: " + getQuickBalance());
                     break;
                 case "getSyncedBalance":
                     break;
@@ -87,6 +89,10 @@ public class Client implements AdvancedMessageListener {
                     memberInfo();
                     break;
                 case "sleep":
+                    if (line.length == 2) {
+                        int arg = Integer.parseInt(line[1]);
+                        sleep(arg);
+                    }
                     break;
                 case "exit":
                     exit();
@@ -172,7 +178,7 @@ public class Client implements AdvancedMessageListener {
      * @param duration milliseconds
      */
     public void sleep(int duration) {
-        // TODO: call this on the "sleep" command.
+        System.out.println("Sleeping for " + duration + " ms.");
         try {
             Thread.sleep(duration);
         } catch (InterruptedException e) {
