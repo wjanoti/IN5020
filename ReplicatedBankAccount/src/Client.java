@@ -2,9 +2,7 @@ import spread.*;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class Client implements AdvancedMessageListener {
 
@@ -26,6 +24,7 @@ public class Client implements AdvancedMessageListener {
     private int orderCount;
     private int outstandingCounter;
     private SpreadGroup group;
+    private Set<String> members;
 
     public Client(String[] args) {
         clientId = UUID.randomUUID();
@@ -34,6 +33,7 @@ public class Client implements AdvancedMessageListener {
         outstandingCollection = new ArrayList<>();
         orderCount = 0;
         outstandingCounter = 0;
+        members = new HashSet<>();
         serverAddress = args[0];
         accountName = args[1];
         numberOfReplicas = Integer.parseInt(args[2]);
@@ -86,6 +86,36 @@ public class Client implements AdvancedMessageListener {
         System.out.println("Client disconnected successfully.");
     }
 
+    /**
+     * Cleans the list of recent transactions
+     */
+    private void cleanHistory() {
+        // TODO: call this on the "cleanHistory" command.
+        executedList.clear();
+    }
+
+    /**
+     * Prints the names of the members of the group.
+     */
+    private void memberInfo() {
+        // TODO: call this on the "memberInfo" command.
+        System.out.println("Members:");
+        Collections.singletonList(members).forEach(System.out::println);
+    }
+
+    /**
+     * Pauses the client for "duration" milliseconds
+     * @param duration milliseconds
+     */
+    public void sleep(int duration) {
+        // TODO: call this on the "sleep" command.
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void regularMessageReceived(SpreadMessage spreadMessage) {
         // TODO: deal with the message received. 
@@ -96,10 +126,11 @@ public class Client implements AdvancedMessageListener {
         // TODO: update group accordingly. Multicast the state to all replicas.
         MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
         if (membershipInfo.isCausedByJoin()) {
-            System.out.println("Someone joined.");
+            // add member to set
+            Arrays.asList(membershipInfo.getMembers()).forEach(member -> this.members.add(member.toString()));
         } else if (membershipInfo.isCausedByDisconnect() || membershipInfo.isCausedByLeave()) {
-            System.out.println("Someone left.");
+            // remove member from set
+            this.members.remove(membershipInfo.getLeft().toString());
         }
-        System.out.println(spreadMessage.getMembershipInfo().getMembers().length + " replicas.");
     }
 }
