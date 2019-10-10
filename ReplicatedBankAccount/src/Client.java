@@ -41,20 +41,71 @@ public class Client implements AdvancedMessageListener {
             inputFilePath = args[3];
         }
         connect();
-        // TODO: wait until all replicas have joined.
-        process();
+        System.out.println("Client running...");
+        while (state != State.TERMINATING) {
+            process();
+        }
+    }
+
+    private void setState(State newState) {
+        this.state = newState;
+    }
+
+    private void waitForMembers() throws InterruptedException {
+        setState(State.WAITING);
+        System.out.print("Waiting for members to connect...");
+        while (members.size() != numberOfReplicas) {
+            Thread.sleep(1000);
+        }
+        System.out.println("OK");
+        setState(State.RUNNING);
     }
 
     private void process() {
         // TODO: process user commands or input file.
+        // read commands from stdin
+        setState(State.RUNNING);
+        if (inputFilePath == null) {
+            Scanner scanner = new Scanner(System.in);
+            String command = scanner.nextLine().trim();
+            switch (command) {
+                case "getQuickBalance":
+                    break;
+                case "getSyncedBalance":
+                    break;
+                case "deposit":
+                    break;
+                case "addInterest":
+                    break;
+                case "getHistory":
+                    break;
+                case "checkTxStatus":
+                    break;
+                case "cleanHistory":
+                    break;
+                case "memberInfo":
+                    memberInfo();
+                    break;
+                case "sleep":
+                    break;
+                case "exit":
+                    exit();
+                default:
+                    System.out.println("Invalid command.");
+            }
+        } else {
+            // TODO: read commands from file
+        }
     }
 
     /**
      * Connects to the Spread server and joins the group.
      */
     private void connect() {
+        System.out.println("Connecting...");
         try {
             this.state = State.CONNECTING;
+
             // connect to server
             connection = new SpreadConnection();
             connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, true);
@@ -65,25 +116,38 @@ public class Client implements AdvancedMessageListener {
             // join group
             group = new SpreadGroup();
             group.join(connection, accountName);
-            System.out.println("Client connected successfully");
-        } catch (SpreadException | UnknownHostException connectionException) {
+
+            waitForMembers();
+        } catch (SpreadException | UnknownHostException | InterruptedException connectionException) {
             System.out.println("Connection error: " + connectionException.getMessage());
             connectionException.printStackTrace();
         }
     }
 
     /**
+     * Get the local balance.
+     * @return double
+     */
+    private double getQuickBalance() {
+        // TODO: call this on the "getQuickBalance" command.
+        return this.balance;
+    }
+
+    /**
      * Disconnects from the Spread server and leaves the group.
      */
-    private void disconnect() {
+    private void exit() {
         // TODO: call this on the "exit" command.
+        setState(State.TERMINATING);
         try {
-            group.leave();
+            // if we don't remove the listener it never disconnects.
+            connection.remove(this);
             connection.disconnect();
         } catch (SpreadException e) {
             e.printStackTrace();
         }
         System.out.println("Client disconnected successfully.");
+        System.exit(0);
     }
 
     /**
@@ -99,7 +163,7 @@ public class Client implements AdvancedMessageListener {
      */
     private void memberInfo() {
         // TODO: call this on the "memberInfo" command.
-        System.out.println("Members:");
+        System.out.println("-> Current members:");
         Collections.singletonList(members).forEach(System.out::println);
     }
 
