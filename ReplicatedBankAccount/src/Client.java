@@ -1,5 +1,6 @@
 import spread.*;
 
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -25,6 +26,27 @@ public class Client implements AdvancedMessageListener {
     private int outstandingCounter;
     private SpreadGroup group;
     private Set<String> members;
+    public static final short OUTSTANDING_TRANSACTIONS = 43;
+    public static final short STATE_UPDATE = 44;
+    // task to broadcast outstanding transactions.
+    private TimerTask outstandingTransactionsTask = new TimerTask() {
+        public void run() {
+            // build message
+            SpreadMessage message = new SpreadMessage();
+            message.setReliable();
+            message.setSafe();
+            message.addGroup(group);
+            message.setType(OUTSTANDING_TRANSACTIONS);
+
+            // send message
+            try {
+                message.digest((Serializable) outstandingCollection);
+                connection.multicast(message);
+            } catch (SpreadException e) {
+                e.printStackTrace();
+            }
+        }
+    };
 
     public Client(String[] args) {
         clientId = UUID.randomUUID();
@@ -41,10 +63,7 @@ public class Client implements AdvancedMessageListener {
             inputFilePath = args[3];
         }
         connect();
-        System.out.println("Client running...");
-        while (state != State.TERMINATING) {
-            process();
-        }
+        run();
     }
 
     private void setState(State newState) {
@@ -61,47 +80,103 @@ public class Client implements AdvancedMessageListener {
         setState(State.RUNNING);
     }
 
-    private void process() {
-        // TODO: process user commands or input file.
-        // read commands from stdin
+    private void run() {
+        // setup broadcast of outstanding transactions every 10 seconds.
+        Timer timer = new Timer("OutstandingTransactionsTimer");
+        timer.scheduleAtFixedRate(outstandingTransactionsTask,10000, 10000);
+
+        System.out.println("Client ready");
         setState(State.RUNNING);
-        if (inputFilePath == null) {
-            Scanner scanner = new Scanner(System.in);
-            String[] line = scanner.nextLine().trim().split("\\s+");
-            String command = line[0];
-            switch (command) {
-                case "getQuickBalance":
-                    System.out.println("Local balance: " + getQuickBalance());
-                    break;
-                case "getSyncedBalance":
-                    break;
-                case "deposit":
-                    break;
-                case "addInterest":
-                    break;
-                case "getHistory":
-                    break;
-                case "checkTxStatus":
-                    break;
-                case "cleanHistory":
-                    break;
-                case "memberInfo":
-                    memberInfo();
-                    break;
-                case "sleep":
-                    if (line.length == 2) {
-                        int arg = Integer.parseInt(line[1]);
-                        sleep(arg);
-                    }
-                    break;
-                case "exit":
-                    exit();
-                default:
-                    System.out.println("Invalid command.");
+
+        while (state != State.TERMINATING) {
+            // process inline commands.
+            if (inputFilePath == null) {
+                Scanner scanner = new Scanner(System.in);
+                String[] line = scanner.nextLine().trim().split("\\s+");
+                String command = line[0];
+                switch (command) {
+                    case "getQuickBalance":
+                        System.out.println("Local balance: " + String.format("%.2f", getQuickBalance()));
+                        break;
+                    case "getSyncedBalance":
+                        break;
+                    case "deposit":
+                        if (line.length == 2) {
+                            double amount = Double.parseDouble(line[1]);
+                            // local command
+                            deposit(amount);
+                            Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
+                            addTransaction(transaction);
+                        }
+                        break;
+                    case "addInterest":
+                        if (line.length == 2) {
+                            double percentage = Double.parseDouble(line[1]);
+                            // local command
+                            addInterest(percentage);
+                            Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
+                            addTransaction(transaction);
+                        }
+                        break;
+                    case "getHistory":
+                        Collections.singletonList(outstandingCollection).forEach(System.out::println);
+                        break;
+                    case "checkTxStatus":
+                        break;
+                    case "cleanHistory":
+                        break;
+                    case "memberInfo":
+                        memberInfo();
+                        break;
+                    case "sleep":
+                        if (line.length == 2) {
+                            int arg = Integer.parseInt(line[1]);
+                            sleep(arg);
+                        }
+                        break;
+                    case "exit":
+                        exit();
+                    default:
+                        System.out.println("Invalid command.");
+                }
+            } else {
+                // process file commands
+                // TODO: read commands from file
             }
-        } else {
-            // TODO: read commands from file
         }
+    }
+
+    /**
+     * Add interest to account balance.
+     * @param percentage amount to increase
+     */
+    private void addInterest(double percentage) {
+        this.balance = this.balance * (1 + (percentage/100));
+    }
+
+    /**
+     * Updates local balance.
+     * @param amount amount to deposit.
+     */
+    private void deposit(double amount) {
+        this.balance += amount;
+    }
+
+    /**
+     * Adds a new transaction the the outstanding transactions list and updates the order count.
+     * @param transaction transaction to be added.
+     */
+    private void addTransaction(Transaction transaction) {
+        outstandingCollection.add(transaction);
+        orderCount++;
+    }
+
+    /**
+     * Generates the id used when creating a new transaction.
+     * @return transaction id.
+     */
+    private String generateTransactionId() {
+        return clientId + " " + outstandingCounter;
     }
 
     /**
@@ -186,9 +261,26 @@ public class Client implements AdvancedMessageListener {
         }
     }
 
+    private void commitTransactions(List<Transaction> outstandingTrasactions) {
+
+    }
+
     @Override
     public void regularMessageReceived(SpreadMessage spreadMessage) {
-        // TODO: deal with the message received. 
+        // ignore messages to myself.
+        if (spreadMessage.getSender().equals(this.connection.getPrivateGroup())) {
+            return;
+        }
+
+        if (spreadMessage.getType() == OUTSTANDING_TRANSACTIONS) {
+            try {
+                List<Transaction> transactions = spreadMessage.getDigest();
+
+            } catch (SpreadException e) {
+                e.printStackTrace();
+            }
+        } else if (spreadMessage.getType() == STATE_UPDATE) {
+        }
     }
 
     @Override
