@@ -2,5 +2,6 @@ public enum State {
     CONNECTING,
     WAITING,
     RUNNING,
-    TERMINATING
+    TERMINATING,
+    SEND_UPDATE
 }

@@ -4,6 +4,8 @@ import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Client implements AdvancedMessageListener {
 
@@ -26,9 +28,14 @@ public class Client implements AdvancedMessageListener {
     private int outstandingCounter;
     private SpreadGroup group;
     private Set<String> members;
-    private ConsistencyChecker consistencyChecker;
+    private Snapshot snapshot;
     private static final short OUTSTANDING_TRANSACTIONS = 43; // used to identify the type of message
     private static final short STATE_UPDATE = 44; // used to identify the type of message
+
+    /**
+     * Lock to control access to the paths that can actually modify the state of the replica
+     */
+    private Lock stateLock = new ReentrantLock();
 
     // task to broadcast outstanding transactions.
     private TimerTask outstandingTransactionsTask = new TimerTask() {
@@ -42,17 +49,27 @@ public class Client implements AdvancedMessageListener {
 
             // send message
             try {
-                message.digest((Serializable) outstandingCollection);
-                connection.multicast(message);
+                synchronized (outstandingCollection) {
+                    message.digest((Serializable) outstandingCollection);
+                    connection.multicast(message);
+                }
             } catch (SpreadException e) {
                 e.printStackTrace();
             }
         }
     };
 
+    /**
+     * Indicates if the client is initialized properly (if the balance and orderCount are set correctly
+     * Especially useful in the case of late-joiners.
+     */
+    private boolean isInitialized = false;
+
+    private List<Transaction> refusedTransactions = new ArrayList<>();
+
     public Client(String[] args) {
         balance = 0;
-        this.consistencyChecker = new ConsistencyChecker();
+        this.snapshot = new Snapshot();
         executedList = new ArrayList<>();
         outstandingCollection = new ArrayList<>();
         orderCount = 0;
@@ -99,7 +116,7 @@ public class Client implements AdvancedMessageListener {
     /**
      * Main client logic.
      */
-    public void run() {
+    public void run() throws InterruptedException {
         // setup broadcast of outstanding transactions every 10 seconds.
         Timer timer = new Timer("OutstandingTransactionsTimer");
         timer.scheduleAtFixedRate(outstandingTransactionsTask,10000, 10000);
@@ -108,6 +125,9 @@ public class Client implements AdvancedMessageListener {
         setState(State.RUNNING);
 
         while (state != State.TERMINATING) {
+            if (state == State.WAITING) {
+                waitForMembers();
+            }
             // process inline commands.
             if (inputFilePath == null) {
                 Scanner scanner = new Scanner(System.in);
@@ -190,12 +210,14 @@ public class Client implements AdvancedMessageListener {
     }
 
     /**
-     * Adds a new transaction the the outstanding transactions list and updates the order count.
+     * Adds a new transaction the the outstanding transactions list
      * @param transaction transaction to be added.
      */
     private void addTransaction(Transaction transaction) {
-        outstandingCollection.add(transaction);
-        outstandingCounter++;
+        synchronized (outstandingCollection) {
+            outstandingCollection.add(transaction);
+            outstandingCounter++;
+        }
     }
 
     /**
@@ -270,14 +292,17 @@ public class Client implements AdvancedMessageListener {
     }
 
     private void applyTransaction(Transaction transaction) {
-        // check if the transaction can be applied (not a duplicate)
-        // and also if the last outstanding_counter from that specific client is the current outstanding_counter - 1
+        if (!this.isInitialized)
+        {
+            // we received a transaction before we are initialized
+            return;
+        }
         System.out.println("Received transaction " + transaction);
         String[] args = transaction.command.split(" ");
-
-        if (!this.consistencyChecker.CanApplyTransaction(transaction))
+        if (!this.snapshot.CanApplyTransaction(transaction))
         {
             System.out.println("Can't apply transaction " + transaction);
+            this.refusedTransactions.add(transaction);
             return;
         }
 
@@ -300,9 +325,11 @@ public class Client implements AdvancedMessageListener {
     }
 
     private void markTransactionAsDone(Transaction t) {
-        this.outstandingCollection.removeIf(item -> item.unique_id.equals(t.unique_id));
+        synchronized (this.outstandingCollection) {
+            this.outstandingCollection.removeIf(item -> item.unique_id.equals(t.unique_id));
+        }
         this.executedList.add(t);
-        this.consistencyChecker.RegisterTransaction(t);
+        this.snapshot.RegisterTransaction(t);
     }
 
     /**
@@ -312,17 +339,44 @@ public class Client implements AdvancedMessageListener {
      */
     @Override
     public void regularMessageReceived(SpreadMessage spreadMessage) {
-        if (spreadMessage.getType() == OUTSTANDING_TRANSACTIONS) {
-            try {
+        try {
+            this.stateLock.lock();
+            if (spreadMessage.getType() == OUTSTANDING_TRANSACTIONS) {
                 List<Transaction> transactions = (List<Transaction>) spreadMessage.getDigest().get(0);
                 commitTransactions(transactions);
-            } catch (SpreadException e) {
-                e.printStackTrace();
+            } else if (spreadMessage.getType() == STATE_UPDATE) {
+                StateUpdate stateUpdate = (StateUpdate) spreadMessage.getDigest().get(0);
+                System.out.println("Updating my state with:" + stateUpdate);
+                this.updateState(stateUpdate);
             }
-        } else if (spreadMessage.getType() == STATE_UPDATE) {
-            String balanceData = new String(spreadMessage.getData());
-            System.out.println("Updating my state with:" + balanceData);
-            this.balance = Double.parseDouble(balanceData);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            this.stateLock.unlock();
+        }
+    }
+
+    private void updateState(StateUpdate stateUpdate) {
+        try {
+            // since we are modifying the state we need to lock
+            this.stateLock.lock();
+            if (!this.isInitialized) {
+                this.isInitialized = true;
+                this.balance = stateUpdate.getBalance();
+                this.orderCount = stateUpdate.getOrderCount();
+                this.snapshot = stateUpdate.getSnapshot();
+                // apply all transactions that we might have skipped before we received the snapshot
+                this.refusedTransactions.forEach(transaction -> {
+                    if (this.snapshot.CanApplyTransaction(transaction)) {
+                        this.applyTransaction(transaction);
+                    }
+                });
+            }
+        }
+        finally {
+            this.stateLock.unlock();
         }
     }
 
@@ -333,30 +387,48 @@ public class Client implements AdvancedMessageListener {
 //            System.out.println(membershipInfo.getJoined().toString());
             this.members.add(membershipInfo.getJoined().toString());
 
-            // a new member joined after the program started and transactions have been executed, send balance update.
-            if (members.size() > numberOfReplicas) { // TODO: probably better if we chech if any transaction has been executed? orderCount > 0 ?
-                sendBalanceUpdateMessage();
+            // only send StateUpdate if this replica actually knows something
+            // todo revisit this
+            if (membershipInfo.getMembers().length > this.numberOfReplicas) {
+                sendStateUpdateMessage();
+            }
+            else {
+                // if we are below or with the exact number of required replicas we are automatically initialized
+                this.isInitialized = true;
             }
         } else if (membershipInfo.isCausedByDisconnect() || membershipInfo.isCausedByLeave()) {
+            // set the state to waiting in case the number of replicas went below the required threshold
+            // this will be reset to RUNNING immediately in the run() method
+            setState(State.WAITING);
+
             // remove member from set
             this.members.remove(membershipInfo.getLeft().toString());
+            this.snapshot.RemoveMember(membershipInfo.getLeft().toString());
         }
     }
 
     /**
-     * Sends a state update message containing balance data.
+     * Sends a state update message containing the current snapshot
      */
-    private void sendBalanceUpdateMessage() {
-        SpreadMessage stateUpdateMessage = new SpreadMessage();
-        stateUpdateMessage.setType(STATE_UPDATE);
-        stateUpdateMessage.setReliable();
-        stateUpdateMessage.setSafe();
-        stateUpdateMessage.addGroup(this.group);
-        stateUpdateMessage.setData(Double.toString(this.balance).getBytes());
+    private void sendStateUpdateMessage(){
+        stateLock.lock();
         try {
+            SpreadMessage stateUpdateMessage = new SpreadMessage();
+            stateUpdateMessage.setType(STATE_UPDATE);
+            stateUpdateMessage.setReliable();
+            stateUpdateMessage.setSafe();
+            stateUpdateMessage.addGroup(this.group);
+            // balance, orderCount and the snapshot cannot be updated in this time because of the stateLock
+            StateUpdate update = new StateUpdate(this.balance, this.orderCount, snapshot);
+            stateUpdateMessage.digest(update);
+            stateUpdateMessage.digest(update);
             connection.multicast(stateUpdateMessage);
-        } catch (SpreadException e) {
+        }
+        catch (Exception e) {
             e.printStackTrace();
+        }
+        finally {
+            stateLock.unlock();
         }
     }
     
@@ -364,7 +436,7 @@ public class Client implements AdvancedMessageListener {
      * Updates the client state.
      * @param newState new state
      */
-    private void setState(State newState) {
+    private synchronized void setState(State newState) {
         this.state = newState;
     }
 

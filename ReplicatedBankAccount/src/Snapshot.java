@@ -1,9 +1,10 @@
+import java.io.Serializable;
 import java.util.HashMap;
 
 /**
- * Class responsible for checking if a transaction should be applied give the current state of the client
+ * Class holding information about the current Snapshot of the replica. Can decide if a transaction is valid or not
  */
-public class ConsistencyChecker {
+public class Snapshot implements Serializable {
 
     private HashMap<String, Integer> lastExecutedTransaction = new HashMap<>();
 
@@ -29,5 +30,9 @@ public class ConsistencyChecker {
         int sequencingNumber = Integer.parseInt(transactionInfo[1]);
 
         lastExecutedTransaction.put(clientName, sequencingNumber);
+    }
+
+    public void RemoveMember(String member) {
+        lastExecutedTransaction.remove(member);
     }
 }
