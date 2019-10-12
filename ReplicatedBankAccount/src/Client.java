@@ -295,7 +295,7 @@ public class Client implements AdvancedMessageListener {
             Arrays.asList(membershipInfo.getMembers()).forEach(member -> this.members.add(member.toString()));
 
             // a new member joined after the program started and transactions have been executed, send balance update.
-            if (members.size() > numberOfReplicas) {
+            if (members.size() > numberOfReplicas) { // TODO: probably better if we chech if any transaction has been executed? orderCount > 0 ?
                 sendBalanceUpdateMessage();
             }
         } else if (membershipInfo.isCausedByDisconnect() || membershipInfo.isCausedByLeave()) {
