@@ -26,6 +26,7 @@ public class Client implements AdvancedMessageListener {
     private int outstandingCounter;
     private SpreadGroup group;
     private Set<String> members;
+    private ConsistencyChecker consistencyChecker;
     private static final short OUTSTANDING_TRANSACTIONS = 43; // used to identify the type of message
     private static final short STATE_UPDATE = 44; // used to identify the type of message
 
@@ -51,6 +52,7 @@ public class Client implements AdvancedMessageListener {
 
     public Client(String[] args) {
         balance = 0;
+        this.consistencyChecker = new ConsistencyChecker();
         executedList = new ArrayList<>();
         outstandingCollection = new ArrayList<>();
         orderCount = 0;
@@ -83,8 +85,9 @@ public class Client implements AdvancedMessageListener {
             group = new SpreadGroup();
             group.join(connection, accountName);
 
+
             // this is the only way we can get to know our own ID
-            clientId = group.toString();
+            clientId = connection.getPrivateGroup().toString();
 
             waitForMembers();
         } catch (SpreadException | UnknownHostException | InterruptedException connectionException) {
@@ -192,7 +195,7 @@ public class Client implements AdvancedMessageListener {
      */
     private void addTransaction(Transaction transaction) {
         outstandingCollection.add(transaction);
-        orderCount++;
+        outstandingCounter++;
     }
 
     /**
@@ -208,7 +211,6 @@ public class Client implements AdvancedMessageListener {
      * @return double
      */
     private double getQuickBalance() {
-        // TODO: call this on the "getQuickBalance" command.
         return this.balance;
     }
 
@@ -259,7 +261,6 @@ public class Client implements AdvancedMessageListener {
     }
 
     private void commitTransactions(List<Transaction> outstandingTrasactions) {
-        // TODO: apply outstanding transactions.
         outstandingTrasactions.forEach(
                 transaction -> {
                     // if we can apply the transaction
@@ -273,10 +274,12 @@ public class Client implements AdvancedMessageListener {
         // and also if the last outstanding_counter from that specific client is the current outstanding_counter - 1
         System.out.println("Received transaction " + transaction);
         String[] args = transaction.command.split(" ");
-        String[] transactionInfo = transaction.unique_id.split(" ");
 
-        String clientName = transactionInfo[0];
-        int sequencingNumber = Integer.parseInt(transactionInfo[1]);
+        if (!this.consistencyChecker.CanApplyTransaction(transaction))
+        {
+            System.out.println("Can't apply transaction " + transaction);
+            return;
+        }
 
         switch (args[0])
         {
@@ -292,11 +295,14 @@ public class Client implements AdvancedMessageListener {
                 this.markTransactionAsDone(transaction);
                 break;
         }
+
+        orderCount++;
     }
 
     private void markTransactionAsDone(Transaction t) {
         this.outstandingCollection.removeIf(item -> item.unique_id.equals(t.unique_id));
         this.executedList.add(t);
+        this.consistencyChecker.RegisterTransaction(t);
     }
 
     /**
@@ -324,9 +330,8 @@ public class Client implements AdvancedMessageListener {
     public void membershipMessageReceived(SpreadMessage spreadMessage) {
         MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
         if (membershipInfo.isCausedByJoin()) {
-            System.out.println(membershipInfo.getJoined().toString());
-            // add member to set
-            Arrays.asList(membershipInfo.getMembers()).forEach(member -> this.members.add(member.toString()));
+//            System.out.println(membershipInfo.getJoined().toString());
+            this.members.add(membershipInfo.getJoined().toString());
 
             // a new member joined after the program started and transactions have been executed, send balance update.
             if (members.size() > numberOfReplicas) { // TODO: probably better if we chech if any transaction has been executed? orderCount > 0 ?
