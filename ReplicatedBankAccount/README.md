@@ -2,15 +2,15 @@ Distributed systems assignment 2:
 
    Client commands:
    
-       - getQuickBalance
-       - getSyncedBalance
-       - deposit <amount>
-       - addInterest <percent>
-       - getHistory
-       - checkTxStatus <Transaction.unique_id>
-       - cleanHistory
-       - memberInfo
-       - sleep <duration>
-       - exit
+   - [x] getQuickBalance
+   - [ ] getSyncedBalance
+   - [x] deposit <amount> (locally)
+   - [x] addInterest <percent> (locally)
+   - [ ] getHistory 
+   - [ ] checkTxStatus <Transaction.unique_id>
+   - [ ] cleanHistory
+   - [x] memberInfo
+   - [x] sleep <duration>
+   - [x] exit 
      
 

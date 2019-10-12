@@ -16,9 +16,9 @@ public class Client implements AdvancedMessageListener {
      * Random port used by Spread server. The assignment does not mention that it must be passed as param,
      * so it's hardcoded here. Change it as needed.
      */
-    int serverPort = 4803;
-    State state;
-    UUID clientId;
+    private int serverPort = 4803;
+    private State state;
+    private UUID clientId;
     private double balance;
     private List<Transaction> executedList;
     private List<Transaction> outstandingCollection;
@@ -26,8 +26,9 @@ public class Client implements AdvancedMessageListener {
     private int outstandingCounter;
     private SpreadGroup group;
     private Set<String> members;
-    public static final short OUTSTANDING_TRANSACTIONS = 43;
-    public static final short STATE_UPDATE = 44;
+    private static final short OUTSTANDING_TRANSACTIONS = 43; // used to identify the type of message
+    private static final short STATE_UPDATE = 44; // used to identify the type of message
+
     // task to broadcast outstanding transactions.
     private TimerTask outstandingTransactionsTask = new TimerTask() {
         public void run() {
@@ -62,25 +63,38 @@ public class Client implements AdvancedMessageListener {
         if (args.length == 4) {
             inputFilePath = args[3];
         }
-        connect();
-        run();
     }
 
-    private void setState(State newState) {
-        this.state = newState;
-    }
+    /**
+     * Connects to the Spread server and joins the group.
+     */
+    public void connect() {
+        System.out.println("Connecting...");
+        try {
+            this.state = State.CONNECTING;
 
-    private void waitForMembers() throws InterruptedException {
-        setState(State.WAITING);
-        System.out.print("Waiting for members to connect...");
-        while (members.size() != numberOfReplicas) {
-            Thread.sleep(1000);
+            // connect to server
+            connection = new SpreadConnection();
+            connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, true);
+
+            // subscribe to messages
+            connection.add(this);
+
+            // join group
+            group = new SpreadGroup();
+            group.join(connection, accountName);
+
+            waitForMembers();
+        } catch (SpreadException | UnknownHostException | InterruptedException connectionException) {
+            System.out.println("Connection error: " + connectionException.getMessage());
+            connectionException.printStackTrace();
         }
-        System.out.println("OK");
-        setState(State.RUNNING);
     }
 
-    private void run() {
+    /**
+     * Main client logic.
+     */
+    public void run() {
         // setup broadcast of outstanding transactions every 10 seconds.
         Timer timer = new Timer("OutstandingTransactionsTimer");
         timer.scheduleAtFixedRate(outstandingTransactionsTask,10000, 10000);
@@ -147,6 +161,20 @@ public class Client implements AdvancedMessageListener {
     }
 
     /**
+     * Wait until the required number of replicas connect to start up.
+     * @throws InterruptedException
+     */
+    private void waitForMembers() throws InterruptedException {
+        setState(State.WAITING);
+        System.out.print("Waiting for members to connect...");
+        while (members.size() < numberOfReplicas) {
+            Thread.sleep(1000);
+        }
+        System.out.println("OK");
+        setState(State.RUNNING);
+    }
+
+    /**
      * Add interest to account balance.
      * @param percentage amount to increase
      */
@@ -177,32 +205,6 @@ public class Client implements AdvancedMessageListener {
      */
     private String generateTransactionId() {
         return clientId + " " + outstandingCounter;
-    }
-
-    /**
-     * Connects to the Spread server and joins the group.
-     */
-    private void connect() {
-        System.out.println("Connecting...");
-        try {
-            this.state = State.CONNECTING;
-
-            // connect to server
-            connection = new SpreadConnection();
-            connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, true);
-
-            // subscribe to messages
-            connection.add(this);
-
-            // join group
-            group = new SpreadGroup();
-            group.join(connection, accountName);
-
-            waitForMembers();
-        } catch (SpreadException | UnknownHostException | InterruptedException connectionException) {
-            System.out.println("Connection error: " + connectionException.getMessage());
-            connectionException.printStackTrace();
-        }
     }
 
     /**
@@ -243,7 +245,6 @@ public class Client implements AdvancedMessageListener {
      * Prints the names of the members of the group.
      */
     private void memberInfo() {
-        // TODO: call this on the "memberInfo" command.
         System.out.println("-> Current members:");
         Collections.singletonList(members).forEach(System.out::println);
     }
@@ -253,7 +254,7 @@ public class Client implements AdvancedMessageListener {
      * @param duration milliseconds
      */
     public void sleep(int duration) {
-        System.out.println("Sleeping for " + duration + " ms.");
+        System.out.println("-> Sleeping for " + duration + " ms.");
         try {
             Thread.sleep(duration);
         } catch (InterruptedException e) {
@@ -262,37 +263,70 @@ public class Client implements AdvancedMessageListener {
     }
 
     private void commitTransactions(List<Transaction> outstandingTrasactions) {
-
+        // TODO: apply outstanding transactions.
     }
 
+    /**
+     * This gets called when a regular message is received by the clients. Meaning messages that contain transactions
+     * to be applied, or state updates to new members.
+     * @param spreadMessage
+     */
     @Override
     public void regularMessageReceived(SpreadMessage spreadMessage) {
-        // ignore messages to myself.
-        if (spreadMessage.getSender().equals(this.connection.getPrivateGroup())) {
-            return;
-        }
-
         if (spreadMessage.getType() == OUTSTANDING_TRANSACTIONS) {
             try {
                 List<Transaction> transactions = spreadMessage.getDigest();
-
+                commitTransactions(transactions);
             } catch (SpreadException e) {
                 e.printStackTrace();
             }
         } else if (spreadMessage.getType() == STATE_UPDATE) {
+            String balanceData = new String(spreadMessage.getData());
+            System.out.println("Updating my state with:" + balanceData);
+            this.balance = Double.parseDouble(balanceData);
         }
     }
 
     @Override
     public void membershipMessageReceived(SpreadMessage spreadMessage) {
-        // TODO: update group accordingly. Multicast the state to all replicas.
         MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
         if (membershipInfo.isCausedByJoin()) {
             // add member to set
             Arrays.asList(membershipInfo.getMembers()).forEach(member -> this.members.add(member.toString()));
+
+            // a new member joined after the program started and transactions have been executed, send balance update.
+            if (members.size() > numberOfReplicas) {
+                sendBalanceUpdateMessage();
+            }
         } else if (membershipInfo.isCausedByDisconnect() || membershipInfo.isCausedByLeave()) {
             // remove member from set
             this.members.remove(membershipInfo.getLeft().toString());
         }
     }
+
+    /**
+     * Sends a state update message containing balance data.
+     */
+    private void sendBalanceUpdateMessage() {
+        SpreadMessage stateUpdateMessage = new SpreadMessage();
+        stateUpdateMessage.setType(STATE_UPDATE);
+        stateUpdateMessage.setReliable();
+        stateUpdateMessage.setSafe();
+        stateUpdateMessage.addGroup(this.group);
+        stateUpdateMessage.setData(Double.toString(this.balance).getBytes());
+        try {
+            connection.multicast(stateUpdateMessage);
+        } catch (SpreadException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Updates the client state.
+     * @param newState new state
+     */
+    private void setState(State newState) {
+        this.state = newState;
+    }
+
 }
