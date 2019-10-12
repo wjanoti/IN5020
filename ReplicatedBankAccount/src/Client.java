@@ -292,14 +292,9 @@ public class Client implements AdvancedMessageListener {
     }
 
     private void applyTransaction(Transaction transaction) {
-        if (!this.isInitialized)
-        {
-            // we received a transaction before we are initialized
-            return;
-        }
         System.out.println("Received transaction " + transaction);
         String[] args = transaction.command.split(" ");
-        if (!this.snapshot.CanApplyTransaction(transaction))
+        if (!this.isInitialized || !this.snapshot.CanApplyTransaction(transaction))
         {
             System.out.println("Can't apply transaction " + transaction);
             this.refusedTransactions.add(transaction);
