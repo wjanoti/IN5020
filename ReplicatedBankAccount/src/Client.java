@@ -18,7 +18,7 @@ public class Client implements AdvancedMessageListener {
      */
     private int serverPort = 4803;
     private State state;
-    private UUID clientId;
+    private String clientId;
     private double balance;
     private List<Transaction> executedList;
     private List<Transaction> outstandingCollection;
@@ -50,7 +50,6 @@ public class Client implements AdvancedMessageListener {
     };
 
     public Client(String[] args) {
-        clientId = UUID.randomUUID();
         balance = 0;
         executedList = new ArrayList<>();
         outstandingCollection = new ArrayList<>();
@@ -75,7 +74,7 @@ public class Client implements AdvancedMessageListener {
 
             // connect to server
             connection = new SpreadConnection();
-            connection.connect(InetAddress.getByName(serverAddress), serverPort, clientId.toString(), false, true);
+            connection.connect(InetAddress.getByName(serverAddress), serverPort, UUID.randomUUID().toString(), false, true);
 
             // subscribe to messages
             connection.add(this);
@@ -83,6 +82,9 @@ public class Client implements AdvancedMessageListener {
             // join group
             group = new SpreadGroup();
             group.join(connection, accountName);
+
+            // this is the only way we can get to know our own ID
+            clientId = group.toString();
 
             waitForMembers();
         } catch (SpreadException | UnknownHostException | InterruptedException connectionException) {
@@ -116,18 +118,12 @@ public class Client implements AdvancedMessageListener {
                         break;
                     case "deposit":
                         if (line.length == 2) {
-                            double amount = Double.parseDouble(line[1]);
-                            // local command
-                            deposit(amount);
                             Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
                             addTransaction(transaction);
                         }
                         break;
                     case "addInterest":
                         if (line.length == 2) {
-                            double percentage = Double.parseDouble(line[1]);
-                            // local command
-                            addInterest(percentage);
                             Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
                             addTransaction(transaction);
                         }
@@ -246,7 +242,7 @@ public class Client implements AdvancedMessageListener {
      */
     private void memberInfo() {
         System.out.println("-> Current members:");
-        Collections.singletonList(members).forEach(System.out::println);
+        members.forEach(System.out::println);
     }
 
     /**
@@ -264,6 +260,43 @@ public class Client implements AdvancedMessageListener {
 
     private void commitTransactions(List<Transaction> outstandingTrasactions) {
         // TODO: apply outstanding transactions.
+        outstandingTrasactions.forEach(
+                transaction -> {
+                    // if we can apply the transaction
+                    applyTransaction(transaction);
+                }
+        );
+    }
+
+    private void applyTransaction(Transaction transaction) {
+        // check if the transaction can be applied (not a duplicate)
+        // and also if the last outstanding_counter from that specific client is the current outstanding_counter - 1
+        System.out.println("Received transaction " + transaction);
+        String[] args = transaction.command.split(" ");
+        String[] transactionInfo = transaction.unique_id.split(" ");
+
+        String clientName = transactionInfo[0];
+        int sequencingNumber = Integer.parseInt(transactionInfo[1]);
+
+        switch (args[0])
+        {
+            case "deposit":
+                double value = Double.parseDouble(args[1]);
+                this.deposit(value);
+                // mark the transaction as executed
+                this.markTransactionAsDone(transaction);
+                break;
+            case "addInterest":
+                double interest = Double.parseDouble(args[1]);
+                this.addInterest(interest);
+                this.markTransactionAsDone(transaction);
+                break;
+        }
+    }
+
+    private void markTransactionAsDone(Transaction t) {
+        this.outstandingCollection.removeIf(item -> item.unique_id.equals(t.unique_id));
+        this.executedList.add(t);
     }
 
     /**
@@ -275,7 +308,7 @@ public class Client implements AdvancedMessageListener {
     public void regularMessageReceived(SpreadMessage spreadMessage) {
         if (spreadMessage.getType() == OUTSTANDING_TRANSACTIONS) {
             try {
-                List<Transaction> transactions = spreadMessage.getDigest();
+                List<Transaction> transactions = (List<Transaction>) spreadMessage.getDigest().get(0);
                 commitTransactions(transactions);
             } catch (SpreadException e) {
                 e.printStackTrace();
@@ -291,6 +324,7 @@ public class Client implements AdvancedMessageListener {
     public void membershipMessageReceived(SpreadMessage spreadMessage) {
         MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
         if (membershipInfo.isCausedByJoin()) {
+            System.out.println(membershipInfo.getJoined().toString());
             // add member to set
             Arrays.asList(membershipInfo.getMembers()).forEach(member -> this.members.add(member.toString()));
 
