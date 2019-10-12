@@ -16,7 +16,7 @@ Distributed systems assignment 2:
 Other things that need doing:
 
 
-- [ ] synchronize the state for a newly joined replica
+- [x] synchronize the state for a newly joined replica
 - [ ] make it possible to read commands from file
      
 Explanation of why synchronizing a newly joined replica is quite complicated:
