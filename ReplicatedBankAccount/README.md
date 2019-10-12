@@ -35,14 +35,10 @@ the interest was applied, meaning the new balance will be 100.
 In this moment, R1 thinks the account has 110 and R2 thinks the account
 has 100.
 
-Solution:
-Each replica can only send the state update when there are no
-transactions that have been sent to Spread and we did not receive
-the message for them. In the example above, at step 5, R2 will 
-simply ignore the message because the Snapshot will see
-that the message from R1 has an outstandingCounter which we did not expect
-but that is ok, we know that R1 is going to send a state update 
-after applying the addInterest 10. The state update class contains:
-balance, orderCount (both "global") and also the outstandingCounter
-which is specific to the sender (R1 in our case).
+Candidate Solution:
+The existing replicas send a full snapshot of what they know and the newly
+joined replicas wait to receive a snapshot before applying any transactions.
+If transactions happen to come before they receive snapshots, 
+the new replica will just store the transaction info for later, but it will
+also check them against the snapshot it will eventually receive.
 

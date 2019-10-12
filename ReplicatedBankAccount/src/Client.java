@@ -186,7 +186,7 @@ public class Client implements AdvancedMessageListener {
     private void waitForMembers() throws InterruptedException {
         setState(State.WAITING);
         System.out.print("Waiting for members to connect...");
-        while (members.size() < numberOfReplicas) {
+        while (members.size() < numberOfReplicas || !this.isInitialized) {
             Thread.sleep(1000);
         }
         System.out.println("OK");
