@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -140,11 +141,6 @@ public class Client implements AdvancedMessageListener {
                     case "getSyncedBalance":
                         break;
                     case "deposit":
-                        if (line.length == 2) {
-                            Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
-                            addTransaction(transaction);
-                        }
-                        break;
                     case "addInterest":
                         if (line.length == 2) {
                             Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
@@ -152,11 +148,18 @@ public class Client implements AdvancedMessageListener {
                         }
                         break;
                     case "getHistory":
-                        Collections.singletonList(outstandingCollection).forEach(System.out::println);
+                        System.out.println("-> Executed transactions:");
+                        AtomicInteger transactionStart = new AtomicInteger(orderCount - executedList.size() + 1);
+                        executedList.forEach(executedTransaction ->
+                                System.out.println(transactionStart.getAndIncrement() + "." + executedTransaction.getCommand()));
+                        System.out.println("\n-> Outstanding transactions:");
+                        outstandingCollection.forEach(outstandingTransaction -> System.out.println(outstandingTransaction.getCommand()));
                         break;
                     case "checkTxStatus":
+                        String transactionId = line[1];
                         break;
                     case "cleanHistory":
+                        cleanHistory();
                         break;
                     case "memberInfo":
                         memberInfo();
@@ -169,6 +172,7 @@ public class Client implements AdvancedMessageListener {
                         break;
                     case "exit":
                         exit();
+                        break;
                     default:
                         System.out.println("Invalid command.");
                 }
@@ -257,7 +261,6 @@ public class Client implements AdvancedMessageListener {
      * Cleans the list of recent transactions
      */
     private void cleanHistory() {
-        // TODO: call this on the "cleanHistory" command.
         executedList.clear();
     }
 
@@ -282,8 +285,8 @@ public class Client implements AdvancedMessageListener {
         }
     }
 
-    private void commitTransactions(List<Transaction> outstandingTrasactions) {
-        outstandingTrasactions.forEach(
+    private void commitTransactions(List<Transaction> outstandingTransactions) {
+        outstandingTransactions.forEach(
                 transaction -> {
                     // if we can apply the transaction
                     applyTransaction(transaction);
@@ -306,16 +309,13 @@ public class Client implements AdvancedMessageListener {
             case "deposit":
                 double value = Double.parseDouble(args[1]);
                 this.deposit(value);
-                // mark the transaction as executed
-                this.markTransactionAsDone(transaction);
                 break;
             case "addInterest":
                 double interest = Double.parseDouble(args[1]);
                 this.addInterest(interest);
-                this.markTransactionAsDone(transaction);
                 break;
         }
-
+        this.markTransactionAsDone(transaction);
         orderCount++;
     }
 
@@ -380,8 +380,7 @@ public class Client implements AdvancedMessageListener {
         MembershipInfo membershipInfo = spreadMessage.getMembershipInfo();
         if (membershipInfo.isCausedByJoin()) {
 //            System.out.println(membershipInfo.getJoined().toString());
-            this.members.add(membershipInfo.getJoined().toString());
-
+            Arrays.asList(membershipInfo.getMembers()).forEach(member -> members.add(member.toString()));
             // only send StateUpdate if this replica actually knows something
             // todo revisit this
             if (membershipInfo.getMembers().length > this.numberOfReplicas) {

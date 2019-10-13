@@ -6,9 +6,9 @@ Distributed systems assignment 2:
    - [ ] getSyncedBalance
    - [x] deposit <amount> (using the spread daemon)
    - [x] addInterest <percent> (using the spread daemon)
-   - [ ] getHistory 
+   - [x] getHistory 
    - [ ] checkTxStatus <Transaction.unique_id>
-   - [ ] cleanHistory
+   - [x] cleanHistory
    - [x] memberInfo
    - [x] sleep <duration>
    - [x] exit 

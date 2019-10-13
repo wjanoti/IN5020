@@ -10,6 +10,10 @@ class Transaction implements Serializable {
         unique_id = id;
     }
 
+    public String getCommand() {
+        return command;
+    }
+
     @Override
     public String toString() {
         return "Transaction ID: " + unique_id + " Command: " + command;
