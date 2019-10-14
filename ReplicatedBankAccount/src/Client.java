@@ -132,9 +132,9 @@ public class Client implements AdvancedMessageListener {
             case "getSyncedBalance":
                 // wait until there are no more outstanding transactions from this client.
                 while (outstandingCollection.stream().anyMatch(transaction -> transaction.getClientId().equals(this.clientId))) {
-                    System.out.println("There are outstanding transactions waiting to be applied...");
-                    sleep(2000);
+                    sleep(1000);
                 }
+
                 System.out.println("Synced balance: " + String.format("%.2f", this.getQuickBalance()));
                 break;
             case "deposit":

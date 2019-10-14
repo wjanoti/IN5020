@@ -1,0 +1,4 @@
+deposit 100
+addInterest 10
+sleep 11000
+getSyncedBalance
