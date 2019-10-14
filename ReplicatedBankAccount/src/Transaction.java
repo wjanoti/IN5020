@@ -26,7 +26,7 @@ class Transaction implements Serializable {
 
     @Override
     public String toString() {
-        return "Transaction ID: " + unique_id + " Command: " + command + " Issuer: " + client_id;
+        return "Transaction ID: " + unique_id + " Command: " + command;
     }
 
 }

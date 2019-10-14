@@ -1,12 +1,16 @@
 import spread.*;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 public class Client implements AdvancedMessageListener {
 
@@ -116,6 +120,75 @@ public class Client implements AdvancedMessageListener {
     }
 
     /**
+     * Parses a string containing a client command and possible arguments.
+     * @param line
+     */
+    private void parseCommand(String line) {
+        String[] commandLine = line.split("\\s+");
+        switch (commandLine[0]) {
+            case "getQuickBalance":
+                System.out.println("Local balance: " + String.format("%.2f", getQuickBalance()));
+                break;
+            case "getSyncedBalance":
+                // wait until there are no more outstanding transactions from this client.
+                while (outstandingCollection.stream().anyMatch(transaction -> transaction.getClientId().equals(this.clientId))) {
+                    System.out.println("There are outstanding transactions waiting to be applied...");
+                    sleep(2000);
+                }
+                System.out.println("Synced balance: " + String.format("%.2f", this.getQuickBalance()));
+                break;
+            case "deposit":
+            case "addInterest":
+                if (commandLine.length == 2) {
+                    Transaction transaction = new Transaction(String.join(" ", commandLine[0], commandLine[1]), generateTransactionId());
+                    addTransaction(transaction);
+                } else {
+                    System.out.println("Usage: deposit <amount> | addInterest <interestRate>");
+                }
+                break;
+            case "getHistory":
+                System.out.println("-> Executed transactions:");
+                AtomicInteger transactionStart = new AtomicInteger(orderCount - executedList.size() + 1);
+                executedList.forEach(executedTransaction ->
+                        System.out.println(transactionStart.getAndIncrement() + "." + executedTransaction.getCommand()));
+                System.out.println("\n-> Outstanding transactions:");
+                outstandingCollection.forEach(outstandingTransaction -> System.out.println(outstandingTransaction.getCommand()));
+                break;
+            case "checkTxStatus":
+                if (commandLine.length == 3) {
+                    String transactionId = String.join(" ", commandLine[1], commandLine[2]);
+                    if (outstandingCollection.stream().anyMatch(transaction -> transaction.getUniqueId().equals(transactionId))) {
+                        System.out.println("Status: Outstanding");
+                    } else if (executedList.stream().anyMatch(transaction -> transaction.getUniqueId().equals(transactionId))) {
+                        System.out.println("Status: Executed");
+                    } else {
+                        System.out.println("Status: Unknown");
+                    }
+                } else {
+                    System.out.println("Usage: checkTxStatus <clientId> <outstandingCounter>");
+                }
+                break;
+            case "cleanHistory":
+                cleanHistory();
+                break;
+            case "memberInfo":
+                memberInfo();
+                break;
+            case "sleep":
+                if (commandLine.length == 2) {
+                    int arg = Integer.parseInt(commandLine[1]);
+                    sleep(arg);
+                }
+                break;
+            case "exit":
+                exit();
+                break;
+            default:
+                System.out.println("Invalid command.");
+        }
+    }
+
+    /**
      * Main client logic.
      */
     public void run() throws InterruptedException {
@@ -133,72 +206,16 @@ public class Client implements AdvancedMessageListener {
             // process inline commands.
             if (inputFilePath == null) {
                 Scanner scanner = new Scanner(System.in);
-                String[] line = scanner.nextLine().trim().split("\\s+");
-                String command = line[0];
-                switch (command) {
-                    case "getQuickBalance":
-                        System.out.println("Local balance: " + String.format("%.2f", getQuickBalance()));
-                        break;
-                    case "getSyncedBalance":
-                        // wait until there are no more outstanding transactions from this client.
-                        while (outstandingCollection.stream().anyMatch(transaction -> transaction.getClientId().equals(this.clientId))) {
-                            System.out.println("There are outstanding transactions waiting to be applied...");
-                            sleep(2000);
-                        }
-                        System.out.println("Synced balance: " + String.format("%.2f", this.getQuickBalance()));
-                        break;
-                    case "deposit":
-                    case "addInterest":
-                        if (line.length == 2) {
-                            Transaction transaction = new Transaction(String.join(" ", line[0], line[1]), generateTransactionId());
-                            addTransaction(transaction);
-                        } else {
-                            System.out.println("Usage: deposit <amount> | addInterest <interestRate>");
-                        }
-                        break;
-                    case "getHistory":
-                        System.out.println("-> Executed transactions:");
-                        AtomicInteger transactionStart = new AtomicInteger(orderCount - executedList.size() + 1);
-                        executedList.forEach(executedTransaction ->
-                                System.out.println(transactionStart.getAndIncrement() + "." + executedTransaction.getCommand()));
-                        System.out.println("\n-> Outstanding transactions:");
-                        outstandingCollection.forEach(outstandingTransaction -> System.out.println(outstandingTransaction.getCommand()));
-                        break;
-                    case "checkTxStatus":
-                        if (line.length == 3) {
-                            String transactionId = String.join(" ", line[1], line[2]);
-                            if (outstandingCollection.stream().anyMatch(transaction -> transaction.getUniqueId().equals(transactionId))) {
-                                System.out.println("Status: Outstanding");
-                            } else if (executedList.stream().anyMatch(transaction -> transaction.getUniqueId().equals(transactionId))) {
-                                System.out.println("Status: Executed");
-                            } else {
-                                System.out.println("Status: Unknown");
-                            }
-                        } else {
-                            System.out.println("Usage: checkTxStatus <clientId> <outstandingCounter>");
-                        }
-                        break;
-                    case "cleanHistory":
-                        cleanHistory();
-                        break;
-                    case "memberInfo":
-                        memberInfo();
-                        break;
-                    case "sleep":
-                        if (line.length == 2) {
-                            int arg = Integer.parseInt(line[1]);
-                            sleep(arg);
-                        }
-                        break;
-                    case "exit":
-                        exit();
-                        break;
-                    default:
-                        System.out.println("Invalid command.");
-                }
+                String line = scanner.nextLine().trim();
+                parseCommand(line);
             } else {
-                // process file commands
-                // TODO: read commands from file
+                // process file commands.
+                try (Stream<String> lines = Files.lines(Paths.get(inputFilePath))) {
+                    lines.forEach(this::parseCommand);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                exit();
             }
         }
     }
