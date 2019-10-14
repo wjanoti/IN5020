@@ -32,6 +32,7 @@ public class Client implements AdvancedMessageListener {
     private Snapshot snapshot;
     private static final short OUTSTANDING_TRANSACTIONS = 43; // used to identify the type of message
     private static final short STATE_UPDATE = 44; // used to identify the type of message
+    private static final int PROPAGATION_INTERVAL = 10000; // 10 seconds
 
     /**
      * Lock to control access to the paths that can actually modify the state of the replica
@@ -120,7 +121,7 @@ public class Client implements AdvancedMessageListener {
     public void run() throws InterruptedException {
         // setup broadcast of outstanding transactions every 10 seconds.
         Timer timer = new Timer("OutstandingTransactionsTimer");
-        timer.scheduleAtFixedRate(outstandingTransactionsTask,10000, 10000);
+        timer.scheduleAtFixedRate(outstandingTransactionsTask, PROPAGATION_INTERVAL, PROPAGATION_INTERVAL);
 
         System.out.println("Client ready");
         setState(State.RUNNING);
@@ -139,12 +140,20 @@ public class Client implements AdvancedMessageListener {
                         System.out.println("Local balance: " + String.format("%.2f", getQuickBalance()));
                         break;
                     case "getSyncedBalance":
+                        // wait until there are no more outstanding transactions from this client.
+                        while (outstandingCollection.stream().anyMatch(transaction -> transaction.getClientId().equals(this.clientId))) {
+                            System.out.println("There are outstanding transactions waiting to be applied...");
+                            sleep(2000);
+                        }
+                        System.out.println("Synced balance: " + String.format("%.2f", this.getQuickBalance()));
                         break;
                     case "deposit":
                     case "addInterest":
                         if (line.length == 2) {
-                            Transaction transaction = new Transaction(line[0] + " " + line[1], generateTransactionId());
+                            Transaction transaction = new Transaction(String.join(" ", line[0], line[1]), generateTransactionId());
                             addTransaction(transaction);
+                        } else {
+                            System.out.println("Usage: deposit <amount> | addInterest <interestRate>");
                         }
                         break;
                     case "getHistory":
@@ -156,7 +165,18 @@ public class Client implements AdvancedMessageListener {
                         outstandingCollection.forEach(outstandingTransaction -> System.out.println(outstandingTransaction.getCommand()));
                         break;
                     case "checkTxStatus":
-                        String transactionId = line[1];
+                        if (line.length == 3) {
+                            String transactionId = String.join(" ", line[1], line[2]);
+                            if (outstandingCollection.stream().anyMatch(transaction -> transaction.getUniqueId().equals(transactionId))) {
+                                System.out.println("Status: Outstanding");
+                            } else if (executedList.stream().anyMatch(transaction -> transaction.getUniqueId().equals(transactionId))) {
+                                System.out.println("Status: Executed");
+                            } else {
+                                System.out.println("Status: Unknown");
+                            }
+                        } else {
+                            System.out.println("Usage: checkTxStatus <clientId> <outstandingCounter>");
+                        }
                         break;
                     case "cleanHistory":
                         cleanHistory();
@@ -244,7 +264,6 @@ public class Client implements AdvancedMessageListener {
      * Disconnects from the Spread server and leaves the group.
      */
     private void exit() {
-        // TODO: call this on the "exit" command.
         setState(State.TERMINATING);
         try {
             // if we don't remove the listener it never disconnects.

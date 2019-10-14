@@ -3,11 +3,11 @@ Distributed systems assignment 2:
    Client commands:
    
    - [x] getQuickBalance
-   - [ ] getSyncedBalance
+   - [x] getSyncedBalance
    - [x] deposit <amount> (using the spread daemon)
    - [x] addInterest <percent> (using the spread daemon)
    - [x] getHistory 
-   - [ ] checkTxStatus <Transaction.unique_id>
+   - [x] checkTxStatus <Transaction.unique_id>
    - [x] cleanHistory
    - [x] memberInfo
    - [x] sleep <duration>
