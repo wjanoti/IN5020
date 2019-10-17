@@ -1,4 +1,16 @@
 deposit 100
+sleep 1000
 addInterest 10
-sleep 11000
-getSyncedBalance
+sleep 1000
+deposit -20
+sleep 1000
+deposit 50
+sleep 1000
+addInterest 50
+sleep 1000
+deposit -200
+sleep 1000
+addInterest 20
+sleep 1000
+deposit 100
+sleep 1000

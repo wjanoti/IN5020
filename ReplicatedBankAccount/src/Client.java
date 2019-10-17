@@ -29,6 +29,7 @@ public class Client implements AdvancedMessageListener {
     private double balance;
     private List<Transaction> executedList;
     private List<Transaction> outstandingCollection;
+    private List<Transaction> ongoingTransactions = new ArrayList<>();
     private int orderCount;
     private int outstandingCounter;
     private SpreadGroup group;
@@ -57,6 +58,7 @@ public class Client implements AdvancedMessageListener {
             try {
                 synchronized (outstandingCollection) {
                     message.digest((Serializable) outstandingCollection);
+                    ongoingTransactions = new ArrayList<>(outstandingCollection);
                     connection.multicast(message);
                 }
             } catch (SpreadException e) {
@@ -131,7 +133,8 @@ public class Client implements AdvancedMessageListener {
                 break;
             case "getSyncedBalance":
                 // wait until there are no more outstanding transactions from this client.
-                while (outstandingCollection.stream().anyMatch(transaction -> transaction.getClientId().equals(this.clientId))) {
+                while (!outstandingCollection.isEmpty() || !ongoingTransactions.isEmpty()) {
+                    System.out.println("Waiting for balance sync...");
                     sleep(1000);
                 }
 
@@ -215,7 +218,8 @@ public class Client implements AdvancedMessageListener {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                exit();
+                inputFilePath = null;
+                //exit();
             }
         }
     }
@@ -358,6 +362,7 @@ public class Client implements AdvancedMessageListener {
     private void markTransactionAsDone(Transaction t) {
         synchronized (this.outstandingCollection) {
             this.outstandingCollection.removeIf(item -> item.unique_id.equals(t.unique_id));
+            this.ongoingTransactions.removeIf(item -> item.unique_id.equals(t.unique_id));
         }
         this.executedList.add(t);
         this.snapshot.RegisterTransaction(t);
