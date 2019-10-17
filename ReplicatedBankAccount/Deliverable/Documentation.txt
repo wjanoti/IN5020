@@ -1,5 +1,6 @@
 The source files for the project are in the src folder. 
 The sources files for the Spread java interface have been added directly to the project, as opposed to being added as a separate JAR.
+The license for the source files under src/spread can be found here : http://www.spread.org/license/license.html .
 
 In the current folder there is a JAR named ReplicatedBankAccount.jar. To run the application:
 1. One must have Spread running on an accessible machine.
