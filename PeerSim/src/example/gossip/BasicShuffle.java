@@ -183,7 +183,6 @@ public class BasicShuffle  implements Linkable, EDProtocol, CDProtocol{
                 outboundMessage.setType(MessageType.SHUFFLE_REJECTED);
                 Transport tr = (Transport) node.getProtocol(tid);
                 tr.send(node, message.getNode(), outboundMessage, pid);
-                CommonState.getTime()
                 return;
             }
             //	  2. Q selects a random subset of size l of its own neighbors;
