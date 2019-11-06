@@ -2,7 +2,7 @@
 set terminal png enhanced
 set output 'plot_ring_avg.png'
 
-set title "Average Shortest Path Length"
+set title "Average Shortest Path Length (Ring)"
 set xlabel "cycles"
 set ylabel "average path length (log)"
 set key right top

@@ -1,7 +1,7 @@
 set terminal png enhanced
 set output 'plot_star_in.png'
 
-set title "In-degree distribution"
+set title "In-degree distribution (Star)"
 set xlabel "in-degree"
 set ylabel "number of nodes"
 set key right top

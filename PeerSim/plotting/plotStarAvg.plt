@@ -2,7 +2,7 @@
 set terminal png enhanced
 set output 'plot_star_avg.png'
 
-set title "Average Shortest Path Length"
+set title "Average Shortest Path Length (Star)"
 set xlabel "cycles"
 set ylabel "average path length (log)"
 set key right top

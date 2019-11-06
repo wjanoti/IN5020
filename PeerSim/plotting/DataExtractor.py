@@ -1,5 +1,6 @@
-
 # control.graphPL: 0.999 1.8999099909991
+# This script extracts data from the simulations output files (e.g. output_star_c30.txt) and generates separate
+# files for each property: clustering coefficient, path length and in-degree.
 
 import re
 import sys
@@ -15,8 +16,11 @@ if __name__ == "__main__":
     path_len_file = "path_len_" + layout + "_c" + c
     in_deg_file = "in_deg_" + layout + "_c" + c
 
+    # clustering coefficient file
     c_file = open(clustering_file, "w")
+    # path length file
     p_file = open(path_len_file, "w")
+    # in-degree file
     i_file = open(in_deg_file, "w")
 
     cycle = 0
