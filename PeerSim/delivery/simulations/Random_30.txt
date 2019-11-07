@@ -3,6 +3,7 @@
 # Basically it produces the data used as baseline.
 
 SIZE 10000
+
 CYCLE 1000
 CYCLES 300
 
@@ -11,6 +12,7 @@ network.size SIZE
 simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
+
 protocol.gossip IdleProtocol
 {
 }
@@ -18,12 +20,13 @@ protocol.gossip IdleProtocol
 init.wire WireKOut
 {
 	protocol gossip
-	k 50
+	k 30
 }
 
 control.degree example.reports.InDegreeObserver
 {
 	protocol gossip
+
 	step CYCLE
 	starttime 299000
 	endtime 300000
